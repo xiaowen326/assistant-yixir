@@ -156,6 +156,141 @@ function showPrompt(title, message) {
 }
 
 
+
+// == 批量实时扣款 ==
+async function batchRealTimeCharge() {
+    if (!validateToken()) {
+        createNotification('请先设置有效的Token', false);
+        return;
+    }
+
+    const input = showPrompt('批量实时扣款', '请输入申请编号（多个用逗号或空格分隔）:');
+    if (!input) return;
+
+    const applyNos = input.split(/[,，\s]+/).filter(no => no.trim());
+    if (applyNos.length === 0) {
+        createNotification('未输入有效的申请编号!', false);
+        return;
+    }
+
+    // 创建进度面板
+    const panel = document.createElement('div');
+    panel.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:#fff;padding:20px;border:1px solid #ccc;z-index:9999;min-width:400px;max-width:600px;max-height:80vh;border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,0.2);display:flex;flex-direction:column;';
+
+    const header = document.createElement('div');
+    header.style.cssText = 'display:flex;justify-content:space-between;align-items:center;padding-bottom:10px;border-bottom:1px solid #eee;margin-bottom:10px;';
+    const titleEl = document.createElement('div');
+    titleEl.textContent = '批量实时扣款 (' + applyNos.length + '个)';
+    titleEl.style.cssText = 'font-weight:bold;font-size:15px;';
+    const closeBtn = document.createElement('button');
+    closeBtn.textContent = '✕';
+    closeBtn.style.cssText = 'background:none;border:none;font-size:18px;cursor:pointer;color:#999;';
+    closeBtn.onclick = () => panel.remove();
+    header.appendChild(titleEl);
+    header.appendChild(closeBtn);
+    panel.appendChild(header);
+
+    const resultArea = document.createElement('div');
+    resultArea.style.cssText = 'overflow-y:auto;flex:1;font-size:13px;line-height:1.8;';
+    panel.appendChild(resultArea);
+
+    const progressText = document.createElement('div');
+    progressText.style.cssText = 'margin-top:10px;padding-top:10px;border-top:1px solid #eee;text-align:center;color:#666;font-size:13px;';
+    progressText.textContent = '准备开始...';
+    panel.appendChild(progressText);
+
+    document.body.appendChild(panel);
+
+    let successCount = 0;
+    let failCount = 0;
+
+    for (let i = 0; i < applyNos.length; i++) {
+        const applyNo = applyNos[i].trim();
+        progressText.textContent = '进度: ' + (i + 1) + '/' + applyNos.length;
+
+        const resultLine = document.createElement('div');
+        resultLine.style.cssText = 'padding:4px 0;border-bottom:1px solid #f5f5f5;';
+
+        try {
+            // 第一步：查询未还明细
+            const detailResp = await fetch('https://ares.yxqiche.com/ares-web/recall/baseinfo/showNotRepayDetail', {
+                method: 'POST',
+                headers: {
+                    'accept': 'application/json, text/plain, */*',
+                    'content-type': 'application/json;charset=UTF-8',
+                },
+                body: JSON.stringify({ applyNo: applyNo }),
+                credentials: 'include'
+            });
+            const detailData = await detailResp.json();
+
+            if (!detailData.success || !detailData.data || !detailData.data.plans || detailData.data.plans.length === 0) {
+                resultLine.innerHTML = '<span style="color:#f44336;">✕ ' + applyNo + '</span> — 查询明细失败: ' + (detailData.message || '无逾期计划');
+                resultArea.appendChild(resultLine);
+                failCount++;
+                continue;
+            }
+
+            // 从plans拼装参数
+            const plans = detailData.data.plans;
+            let totalAmount = 0;
+            let actualPenaltyAmt = 0;
+            const planList = [];
+
+            for (const p of plans) {
+                const amt = parseFloat(p.remainingOutstandingAmount) || 0;
+                totalAmount += amt;
+                actualPenaltyAmt += parseFloat(p.totalOverduePenalty) || 0;
+                planList.push({
+                    actualRepayTotalMoney: amt,
+                    currentRepayPeriod: p.currentRepayPeriod
+                });
+            }
+
+            totalAmount = Math.round(totalAmount * 100) / 100;
+            actualPenaltyAmt = Math.round(actualPenaltyAmt * 100) / 100;
+
+            // 第二步：发起实时扣款
+            const chargeResp = await fetch('https://ares.yxqiche.com/ares-web/recall/baseinfo/realTimeCharge', {
+                method: 'POST',
+                headers: {
+                    'accept': 'application/json, text/plain, */*',
+                    'content-type': 'application/json;charset=UTF-8',
+                },
+                body: JSON.stringify({
+                    applyNo: applyNo,
+                    totalAmount: String(totalAmount),
+                    actualPenaltyAmt: actualPenaltyAmt,
+                    planList: planList
+                }),
+                credentials: 'include'
+            });
+            const chargeData = await chargeResp.json();
+
+            if (chargeData.success) {
+                resultLine.innerHTML = '<span style="color:#4CAF50;">✓ ' + applyNo + '</span> — 扣款成功 (金额: ' + totalAmount + '元, ' + plans.length + '期)';
+                successCount++;
+            } else {
+                resultLine.innerHTML = '<span style="color:#FF9800;">⚠ ' + applyNo + '</span> — 扣款失败: ' + (chargeData.message || '未知原因') + ' (金额: ' + totalAmount + '元)';
+                failCount++;
+            }
+        } catch (e) {
+            resultLine.innerHTML = '<span style="color:#f44336;">✕ ' + applyNo + '</span> — 请求异常: ' + e.message;
+            failCount++;
+        }
+
+        resultArea.appendChild(resultLine);
+        resultArea.scrollTop = resultArea.scrollHeight;
+
+        // 间隔500ms，避免请求过快
+        if (i < applyNos.length - 1) {
+            await new Promise(r => setTimeout(r, 500));
+        }
+    }
+
+    progressText.innerHTML = '<b>完成</b> — 成功: <span style="color:#4CAF50;">' + successCount + '</span>, 失败: <span style="color:#f44336;">' + failCount + '</span>';
+}
+
 // == 公共函数 ==
 function createProgressBar(title, totalTasks) {
     const loadingElement = document.createElement('div');
@@ -2764,6 +2899,7 @@ function createHelperUI() {
     { text: '查询历史客诉', action: batchhistoryComplaint, color: '#C62828' }, // 深红色 - 代表警示和重要
     { text: '合并查询车辆信息', action: batchQueryCarAndBaseInfo, color: '#E64A19' }, // 橙红色 - 代表综合和整合
     { text: '查询短信数据', action: batchQuerySMSData, color: '#455A64' }, // 深灰色 - 代表数据和信息
+    { text: '批量实时扣款', action: batchRealTimeCharge, color: '#D32F2F' }, // 红色 - 代表扣款操作
     { text: '显示/隐藏水印' , action: toggleWatermark, color: '#5D4037',}, // 水印控制
     // { text: '设置Token', action: setToken, color: '#607D8B' }
   ];
