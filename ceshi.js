@@ -173,123 +173,152 @@ async function batchRealTimeCharge() {
         return;
     }
 
-    // 创建进度面板
-    const panel = document.createElement('div');
-    panel.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:#fff;padding:20px;border:1px solid #ccc;z-index:9999;min-width:400px;max-width:600px;max-height:80vh;border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,0.2);display:flex;flex-direction:column;';
+    // 使用公共进度条组件
+    const { loadingElement, counterElement, progressBar } = createProgressBar(`正在实时扣款 (${applyNos.length}个申请号)`, applyNos.length);
 
-    const header = document.createElement('div');
-    header.style.cssText = 'display:flex;justify-content:space-between;align-items:center;padding-bottom:10px;border-bottom:1px solid #eee;margin-bottom:10px;';
-    const titleEl = document.createElement('div');
-    titleEl.textContent = '批量实时扣款 (' + applyNos.length + '个)';
-    titleEl.style.cssText = 'font-weight:bold;font-size:15px;';
-    const closeBtn = document.createElement('button');
-    closeBtn.textContent = '✕';
-    closeBtn.style.cssText = 'background:none;border:none;font-size:18px;cursor:pointer;color:#999;';
-    closeBtn.onclick = () => panel.remove();
-    header.appendChild(titleEl);
-    header.appendChild(closeBtn);
-    panel.appendChild(header);
-
-    const resultArea = document.createElement('div');
-    resultArea.style.cssText = 'overflow-y:auto;flex:1;font-size:13px;line-height:1.8;';
-    panel.appendChild(resultArea);
-
-    const progressText = document.createElement('div');
-    progressText.style.cssText = 'margin-top:10px;padding-top:10px;border-top:1px solid #eee;text-align:center;color:#666;font-size:13px;';
-    progressText.textContent = '准备开始...';
-    panel.appendChild(progressText);
-
-    document.body.appendChild(panel);
-
-    let successCount = 0;
-    let failCount = 0;
-
-    for (let i = 0; i < applyNos.length; i++) {
-        const applyNo = applyNos[i].trim();
-        progressText.textContent = '进度: ' + (i + 1) + '/' + applyNos.length;
-
-        const resultLine = document.createElement('div');
-        resultLine.style.cssText = 'padding:4px 0;border-bottom:1px solid #f5f5f5;';
-
-        try {
-            // 第一步：查询未还明细
-            const detailResp = await fetch('https://ares.yxqiche.com/ares-web/recall/baseinfo/showNotRepayDetail', {
-                method: 'POST',
-                headers: {
-                    'accept': 'application/json, text/plain, */*',
-                    'content-type': 'application/json;charset=UTF-8',
-                },
-                body: JSON.stringify({ applyNo: applyNo }),
-                credentials: 'include'
-            });
-            const detailData = await detailResp.json();
-
-            if (!detailData.success || !detailData.data || !detailData.data.plans || detailData.data.plans.length === 0) {
-                resultLine.innerHTML = '<span style="color:#f44336;">✕ ' + applyNo + '</span> — 查询明细失败: ' + (detailData.message || '无逾期计划');
-                resultArea.appendChild(resultLine);
-                failCount++;
-                continue;
+    // 创建标题栏（含最小化按钮）
+    const header = loadingElement.querySelector('div');
+    const minimizeBtn = header.querySelector('button');
+    if (minimizeBtn) {
+        minimizeBtn.onclick = () => {
+            loadingElement.style.display = 'none';
+            const taskContainer = document.getElementById('background-task');
+            if (taskContainer) {
+                document.getElementById('task-title').textContent = '任务: 批量实时扣款';
+                document.getElementById('task-progress-text').textContent = `已完成: ${completed}/${applyNos.length}`;
+                document.getElementById('task-progress-bar').style.width = `${(completed / applyNos.length) * 100}%`;
+                taskContainer.style.display = 'block';
             }
-
-            // 从plans拼装参数
-            const plans = detailData.data.plans;
-            let totalAmount = 0;
-            let actualPenaltyAmt = 0;
-            const planList = [];
-
-            for (const p of plans) {
-                const amt = parseFloat(p.remainingOutstandingAmount) || 0;
-                totalAmount += amt;
-                actualPenaltyAmt += parseFloat(p.totalOverduePenalty) || 0;
-                planList.push({
-                    actualRepayTotalMoney: amt,
-                    currentRepayPeriod: p.currentRepayPeriod
-                });
-            }
-
-            totalAmount = Math.round(totalAmount * 100) / 100;
-            actualPenaltyAmt = Math.round(actualPenaltyAmt * 100) / 100;
-
-            // 第二步：发起实时扣款
-            const chargeResp = await fetch('https://ares.yxqiche.com/ares-web/recall/baseinfo/realTimeCharge', {
-                method: 'POST',
-                headers: {
-                    'accept': 'application/json, text/plain, */*',
-                    'content-type': 'application/json;charset=UTF-8',
-                },
-                body: JSON.stringify({
-                    applyNo: applyNo,
-                    totalAmount: String(totalAmount),
-                    actualPenaltyAmt: actualPenaltyAmt,
-                    planList: planList
-                }),
-                credentials: 'include'
-            });
-            const chargeData = await chargeResp.json();
-
-            if (chargeData.success) {
-                resultLine.innerHTML = '<span style="color:#4CAF50;">✓ ' + applyNo + '</span> — 扣款成功 (金额: ' + totalAmount + '元, ' + plans.length + '期)';
-                successCount++;
-            } else {
-                resultLine.innerHTML = '<span style="color:#FF9800;">⚠ ' + applyNo + '</span> — 扣款失败: ' + (chargeData.message || '未知原因') + ' (金额: ' + totalAmount + '元)';
-                failCount++;
-            }
-        } catch (e) {
-            resultLine.innerHTML = '<span style="color:#f44336;">✕ ' + applyNo + '</span> — 请求异常: ' + e.message;
-            failCount++;
-        }
-
-        resultArea.appendChild(resultLine);
-        resultArea.scrollTop = resultArea.scrollHeight;
-
-        // 间隔500ms，避免请求过快
-        if (i < applyNos.length - 1) {
-            await new Promise(r => setTimeout(r, 500));
-        }
+        };
     }
 
-    progressText.innerHTML = '<b>完成</b> — 成功: <span style="color:#4CAF50;">' + successCount + '</span>, 失败: <span style="color:#f44336;">' + failCount + '</span>';
+    document.body.appendChild(loadingElement);
+
+    const results = new Array(applyNos.length);
+    let completed = 0;
+
+    try {
+        // 逐个处理（扣款需要顺序执行，避免并发问题）
+        for (let index = 0; index < applyNos.length; index++) {
+            const applyNo = applyNos[index].trim();
+            try {
+                // 第一步：查询未还明细
+                const detailResp = await fetch('https://ares.yxqiche.com/ares-web/recall/baseinfo/showNotRepayDetail', {
+                    method: 'POST',
+                    headers: {
+                        'accept': 'application/json, text/plain, */*',
+                        'content-type': 'application/json;charset=UTF-8',
+                    },
+                    body: JSON.stringify({ applyNo: applyNo }),
+                    credentials: 'include'
+                });
+                const detailData = await detailResp.json();
+
+                if (!detailData.success || !detailData.data || !detailData.data.plans || detailData.data.plans.length === 0) {
+                    results[index] = {
+                        申请编号: applyNo,
+                        扣款状态: '查询失败',
+                        失败原因: detailData.message || '无逾期计划',
+                        扣款金额: '-',
+                        期数: '-'
+                    };
+                    continue;
+                }
+
+                // 从plans拼装参数
+                const plans = detailData.data.plans;
+                let totalAmount = 0;
+                let actualPenaltyAmt = 0;
+                const planList = [];
+
+                for (const p of plans) {
+                    const amt = parseFloat(p.remainingOutstandingAmount) || 0;
+                    totalAmount += amt;
+                    actualPenaltyAmt += parseFloat(p.totalOverduePenalty) || 0;
+                    planList.push({
+                        actualRepayTotalMoney: amt,
+                        currentRepayPeriod: p.currentRepayPeriod
+                    });
+                }
+
+                totalAmount = Math.round(totalAmount * 100) / 100;
+                actualPenaltyAmt = Math.round(actualPenaltyAmt * 100) / 100;
+
+                // 第二步：发起实时扣款
+                const chargeResp = await fetch('https://ares.yxqiche.com/ares-web/recall/baseinfo/realTimeCharge', {
+                    method: 'POST',
+                    headers: {
+                        'accept': 'application/json, text/plain, */*',
+                        'content-type': 'application/json;charset=UTF-8',
+                    },
+                    body: JSON.stringify({
+                        applyNo: applyNo,
+                        totalAmount: String(totalAmount),
+                        actualPenaltyAmt: actualPenaltyAmt,
+                        planList: planList
+                    }),
+                    credentials: 'include'
+                });
+                const chargeData = await chargeResp.json();
+
+                if (chargeData.success) {
+                    results[index] = {
+                        申请编号: applyNo,
+                        扣款状态: '扣款成功',
+                        失败原因: '-',
+                        扣款金额: totalAmount + '元',
+                        期数: plans.length + '期'
+                    };
+                } else {
+                    results[index] = {
+                        申请编号: applyNo,
+                        扣款状态: '扣款失败',
+                        失败原因: chargeData.message || '未知原因',
+                        扣款金额: totalAmount + '元',
+                        期数: plans.length + '期'
+                    };
+                }
+            } catch (error) {
+                results[index] = {
+                    申请编号: applyNo,
+                    扣款状态: '请求异常',
+                    失败原因: error.message,
+                    扣款金额: '-',
+                    期数: '-'
+                };
+            } finally {
+                completed++;
+                updateProgress(counterElement, progressBar, completed, applyNos.length);
+            }
+
+            // 间隔500ms，避免请求过快
+            if (index < applyNos.length - 1) {
+                await new Promise(r => setTimeout(r, 500));
+            }
+        }
+
+        // 确保进度条100%
+        counterElement.textContent = `已完成: ${applyNos.length}/${applyNos.length}`;
+        progressBar.style.width = '100%';
+
+        const successCount = results.filter(r => r.扣款状态 === '扣款成功').length;
+        const failCount = results.filter(r => r.扣款状态 !== '扣款成功').length;
+        createNotification(`扣款完成! 成功: ${successCount}, 失败: ${failCount}`);
+    } finally {
+        // 任务完成后隐藏悬浮窗进度
+        const taskContainer = document.getElementById('background-task');
+        if (taskContainer) {
+            taskContainer.style.display = 'none';
+        }
+        // 移除进度窗口
+        if (loadingElement.parentNode) {
+            loadingElement.remove();
+        }
+        // 展示结果
+        displayResults(results, '批量实时扣款结果');
+    }
 }
+
 
 // == 公共函数 ==
 function createProgressBar(title, totalTasks) {
