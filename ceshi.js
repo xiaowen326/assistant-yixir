@@ -1,15 +1,16 @@
-// ==UserScript==
-// @name         易鑫
-// @namespace    http://tampermonkey.net/
-// @version      1.0
-// @description  易鑫云平台系统助手 - 号码脱敏、批量查询、短信发送等功能
-// @match        https://yun.yxqiche.com/*
-// @match        https://ares.yxqiche.com/*
-// @grant        GM_setValue
-// @grant        GM_getValue
-// @grant        GM_xmlhttpRequest
-// @run-at       document-idle
-// ==/UserScript==
+// == GM API 桥接（加载器模式） ==
+// 从油猴沙箱获取GM API，通过window.__GM_XXX暴露给加载器注入的脚本
+var GM_setValue = window.__GM_setValue || function(k, v) { try { localStorage.setItem('__ysx_' + k, JSON.stringify(v)); } catch(e) {} };
+var GM_getValue = window.__GM_getValue || function(k, def) { try { var v = localStorage.getItem('__ysx_' + k); return v !== null ? JSON.parse(v) : def; } catch(e) { return def; } };
+var GM_xmlhttpRequest = window.__GM_xmlhttpRequest || function(opts) {
+    var xhr = new XMLHttpRequest();
+    xhr.open(opts.method || 'GET', opts.url, true);
+    if (opts.headers) Object.keys(opts.headers).forEach(function(k) { xhr.setRequestHeader(k, opts.headers[k]); });
+    xhr.onload = function() { opts.onload && opts.onload({ status: xhr.status, responseText: xhr.responseText }); };
+    xhr.onerror = function() { opts.onerror && opts.onerror(xhr); };
+    xhr.send();
+};
+// == 桥接结束 ==
 
 // == 全局配置 ==
 const BASE_URL = "https://ares.yxqiche.com";
