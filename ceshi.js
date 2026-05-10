@@ -2690,24 +2690,26 @@ function createHelperUI() {
     position: fixed;
     top: 20px;
     right: 20px;
-    background: white;
-    border: 2px solid #4CAF50;
-    border-radius: 10px;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    background: linear-gradient(135deg, #ffffff 0%, #f8fffe 100%);
+    border: none;
+    border-radius: 16px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.12), 0 2px 8px rgba(46,125,50,0.08);
     z-index: 9999;
-    font-family: Arial, sans-serif;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     width: 300px;
     max-width: 90vw;
+    overflow: hidden;
+    backdrop-filter: blur(10px);
   `;
     // === 新增：后台任务进度显示区域 ===
     const taskProgressContainer = document.createElement('div');
     taskProgressContainer.id = 'background-task';
     taskProgressContainer.style.cssText = `
-        display: none; /* 默认隐藏 */
+        display: none;
         position: relative;
-        border-top: 1px solid #eee;
-        padding: 10px;
-        background: #f9f9f9;
+        border-top: 1px solid rgba(46,125,50,0.1);
+        padding: 10px 14px;
+        background: rgba(46,125,50,0.03);
     `;
     
     // 任务标题
@@ -2750,14 +2752,17 @@ function createHelperUI() {
         position: absolute;
         top: 10px;
         right: 10px;
-        background: #f44336;
+        background: #ef5350;
         color: white;
         border: none;
-        border-radius: 3px;
-        padding: 3px 8px;
-        font-size: 12px;
+        border-radius: 6px;
+        padding: 3px 10px;
+        font-size: 11px;
         cursor: pointer;
+        transition: background 0.2s;
     `;
+    cancelButton.addEventListener('mouseover', () => cancelButton.style.background = '#f44336');
+    cancelButton.addEventListener('mouseout', () => cancelButton.style.background = '#ef5350');
     taskProgressContainer.appendChild(cancelButton);
     
     container.appendChild(taskProgressContainer); // 将后台任务区域添加到悬浮窗
@@ -2769,8 +2774,10 @@ function createHelperUI() {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 5px 10px;
-    border-bottom: 1px solid #eee;
+    padding: 12px 16px;
+    background: linear-gradient(135deg, #2e7d32 0%, #43a047 100%);
+    color: white;
+    border-radius: 16px 16px 0 0;
   `;
 	
   // 拖拽手柄（左）
@@ -2778,18 +2785,22 @@ function createHelperUI() {
   dragHandle.textContent = '≡';
   dragHandle.style.cssText = `
     cursor: move;
-    font-size: 20px;
-    color: #888;
+    font-size: 18px;
+    color: rgba(255,255,255,0.8);
+    transition: color 0.2s;
   `;
+  dragHandle.addEventListener('mouseover', () => dragHandle.style.color = 'white');
+  dragHandle.addEventListener('mouseout', () => dragHandle.style.color = 'rgba(255,255,255,0.8)');
   titleBar.appendChild(dragHandle);
 
   // 标题（中）
   const title = document.createElement('div');
   title.textContent = '易鑫云系统助手';
   title.style.cssText = `
-    font-size: 18px;
-    font-weight: bold;
-    color: #2e7d32;
+    font-size: 16px;
+    font-weight: 600;
+    color: white;
+    letter-spacing: 1px;
   `;
   titleBar.appendChild(title);
 
@@ -2805,26 +2816,29 @@ function createHelperUI() {
   const zoomOutBtn = document.createElement('button');
   zoomOutBtn.textContent = '−';
   zoomOutBtn.style.cssText = `
-    background: none;
-    border: 1px solid #ddd;
-    border-radius: 3px;
-    font-size: 16px;
-    color: #666;
+    background: rgba(255,255,255,0.2);
+    border: none;
+    border-radius: 6px;
+    font-size: 14px;
+    color: white;
     cursor: pointer;
-    width: 24px;
-    height: 24px;
+    width: 22px;
+    height: 22px;
     display: flex;
     align-items: center;
     justify-content: center;
+    transition: background 0.2s;
   `;
+  zoomOutBtn.addEventListener('mouseover', () => zoomOutBtn.style.background = 'rgba(255,255,255,0.3)');
+  zoomOutBtn.addEventListener('mouseout', () => zoomOutBtn.style.background = 'rgba(255,255,255,0.2)');
   
   // 缩放级别显示
   const zoomLevel = document.createElement('span');
   zoomLevel.textContent = '100%';
   zoomLevel.style.cssText = `
-    font-size: 12px;
-    color: #666;
-    min-width: 40px;
+    font-size: 11px;
+    color: rgba(255,255,255,0.85);
+    min-width: 36px;
     text-align: center;
   `;
   
@@ -2832,18 +2846,21 @@ function createHelperUI() {
   const zoomInBtn = document.createElement('button');
   zoomInBtn.textContent = '+';
   zoomInBtn.style.cssText = `
-    background: none;
-    border: 1px solid #ddd;
-    border-radius: 3px;
-    font-size: 16px;
-    color: #666;
+    background: rgba(255,255,255,0.2);
+    border: none;
+    border-radius: 6px;
+    font-size: 14px;
+    color: white;
     cursor: pointer;
-    width: 24px;
-    height: 24px;
+    width: 22px;
+    height: 22px;
     display: flex;
     align-items: center;
     justify-content: center;
+    transition: background 0.2s;
   `;
+  zoomInBtn.addEventListener('mouseover', () => zoomInBtn.style.background = 'rgba(255,255,255,0.3)');
+  zoomInBtn.addEventListener('mouseout', () => zoomInBtn.style.background = 'rgba(255,255,255,0.2)');
   
   zoomControls.appendChild(zoomOutBtn);
   zoomControls.appendChild(zoomLevel);
@@ -2853,14 +2870,18 @@ function createHelperUI() {
   const collapseBtn = document.createElement('button');
   collapseBtn.textContent = '−'; // 初始为折叠状态（显示内容）
   collapseBtn.style.cssText = `
-    background: none;
+    background: rgba(255,255,255,0.2);
     border: none;
-    font-size: 20px;
-    color: #888;
+    border-radius: 6px;
+    font-size: 16px;
+    color: white;
     cursor: pointer;
-    padding: 0 5px;
-    margin-left: 10px;
+    padding: 2px 6px;
+    margin-left: 8px;
+    transition: background 0.2s;
   `;
+  collapseBtn.addEventListener('mouseover', () => collapseBtn.style.background = 'rgba(255,255,255,0.3)');
+  collapseBtn.addEventListener('mouseout', () => collapseBtn.style.background = 'rgba(255,255,255,0.2)');
   
   zoomControls.appendChild(collapseBtn);
   titleBar.appendChild(zoomControls);
@@ -2871,12 +2892,14 @@ function createHelperUI() {
   const quoteElement = document.createElement('div');
   quoteElement.className = 'inspiration-quote';
   quoteElement.style.cssText = `
-    padding: 10px 15px;
-    color: #666;
+    padding: 10px 16px;
+    color: #7c9a82;
     font-style: italic;
-    font-size: 14px;
-    border-bottom: 1px solid #eee;
-    min-height: 40px; /* 固定高度，避免折叠时跳动 */
+    font-size: 12px;
+    border-bottom: 1px solid rgba(46,125,50,0.1);
+    min-height: 36px;
+    background: rgba(46,125,50,0.03);
+    line-height: 1.5;
   `;
   container.appendChild(quoteElement);
 
@@ -2884,7 +2907,7 @@ function createHelperUI() {
   const helperContent = document.createElement('div');
   helperContent.className = 'helper-content';
   helperContent.style.cssText = `
-    padding: 15px;
+    padding: 12px 14px;
   `;
 
   // === 3.1 Token状态提示（放在内容容器内） ===
@@ -2899,18 +2922,19 @@ function createHelperUI() {
   const statusIndicator = document.createElement('div');
   statusIndicator.id = 'token-status-indicator';
   statusIndicator.style.cssText = `
-    width: 12px;
-    height: 12px;
+    width: 8px;
+    height: 8px;
     border-radius: 50%;
     background-color: #f44336;
-    margin-right: 10px;
-    box-shadow: 0 0 8px rgba(244, 67, 54, 0.5);
+    margin-right: 8px;
+    box-shadow: 0 0 6px rgba(244, 67, 54, 0.4);
+    transition: all 0.3s;
   `;
 
   const statusText = document.createElement('span');
   statusText.id = 'token-status-text';
   statusText.textContent = '未设置Token';
-  statusText.style.cssText = 'color: #f44336; font-weight: bold;';
+  statusText.style.cssText = 'color: #f44336; font-size: 12px; font-weight: 500;';
 
   tokenStatus.appendChild(statusIndicator);
   tokenStatus.appendChild(statusText);
@@ -2939,30 +2963,32 @@ function createHelperUI() {
     btn.style.cssText = `
       display: block;
       width: 100%;
-      padding: 12px;
-      margin: 6px 0;
+      padding: 10px 12px;
+      margin: 4px 0;
       background: ${button.color};
       color: white;
       border: none;
-      border-radius: 6px;
+      border-radius: 8px;
       cursor: pointer;
-      font-weight: bold;
-      font-size: 14px;
-      transition: all 0.3s ease;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      font-weight: 500;
+      font-size: 13px;
+      transition: all 0.2s ease;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+      letter-spacing: 0.5px;
     `;
         btn.addEventListener('mouseover', () => {
-            btn.style.opacity = '0.9';
+            btn.style.filter = 'brightness(1.1)';
             btn.style.transform = 'translateY(-1px)';
-            btn.style.boxShadow = '0 4px 8px rgba(0,0,0,0.15)';
+            btn.style.boxShadow = '0 4px 12px rgba(0,0,0,0.15)';
         });
         btn.addEventListener('mouseout', () => {
-            btn.style.opacity = '1';
+            btn.style.filter = 'none';
             btn.style.transform = 'translateY(0)';
-            btn.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
+            btn.style.boxShadow = '0 2px 6px rgba(0,0,0,0.1)';
         });
         btn.addEventListener('mousedown', () => {
             btn.style.transform = 'translateY(1px)';
+            btn.style.boxShadow = '0 1px 3px rgba(0,0,0,0.1)';
         });
         btn.addEventListener('mouseup', () => {
             btn.style.transform = 'translateY(-1px)';
