@@ -2952,7 +2952,7 @@ function createHelperUI() {
     { text: '查询历史客诉', action: batchhistoryComplaint, color: '#C62828' }, // 深红色 - 代表警示和重要
     { text: '合并查询车辆信息', action: batchQueryCarAndBaseInfo, color: '#E64A19' }, // 橙红色 - 代表综合和整合
     { text: '查询短信数据', action: batchQuerySMSData, color: '#455A64' }, // 深灰色 - 代表数据和信息
-    { text: '批量实时扣款', action: batchRealTimeCharge, color: '#D32F2F' }, // 红色 - 代表扣款操作
+    { text: '批量实时扣款', action: batchRealTimeCharge, color: '#E91E63' }, // 红色 - 代表扣款操作
     { text: '显示/隐藏水印' , action: toggleWatermark, color: '#5D4037',}, // 水印控制
     // { text: '设置Token', action: setToken, color: '#607D8B' }
   ];
