@@ -109,38 +109,70 @@ function validateToken() {
 function createNotification(message, isSuccess = true, duration = 3000) {
     const notification = document.createElement('div');
     notification.textContent = message;
+    // 根据成功/失败状态选择不同的发光颜色
+    const glowColor = isSuccess ? 'rgba(0, 255, 136, 0.6)' : 'rgba(255, 59, 48, 0.6)';
+    const bgColor = isSuccess 
+        ? 'linear-gradient(135deg, rgba(0, 201, 87, 0.85) 0%, rgba(0, 255, 136, 0.75) 100%)'
+        : 'linear-gradient(135deg, rgba(255, 59, 48, 0.85) 0%, rgba(255, 82, 82, 0.75) 100%)';
+    
     notification.style = `
         position: fixed;
         top: 20px;
         left: 50%;
         transform: translateX(-50%) translateY(-10px);
-        padding: 15px 25px;
-        background: ${isSuccess ? '#4CAF50' : '#f44336'};
+        padding: 14px 28px;
+        background: ${bgColor};
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
         color: white;
-        border-radius: 8px;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+        border-radius: 12px;
+        border: 1px solid ${glowColor};
+        box-shadow: 
+            0 0 20px ${glowColor},
+            0 8px 32px rgba(0, 0, 0, 0.4),
+            inset 0 1px 0 rgba(255, 255, 255, 0.2);
         z-index: 10000;
-        font-family: Arial, sans-serif;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
         font-size: 14px;
         font-weight: 500;
         opacity: 0;
-        transition: opacity 0.3s, top 0.3s, transform 0.3s;
+        transition: opacity 0.4s cubic-bezier(0.4, 0, 0.2, 1), 
+                    top 0.4s cubic-bezier(0.4, 0, 0.2, 1), 
+                    transform 0.4s cubic-bezier(0.4, 0, 0.2, 1),
+                    box-shadow 0.3s ease;
         max-width: 80vw;
         text-align: center;
+        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+        letter-spacing: 0.5px;
+        animation: notificationPulse 2s ease-in-out infinite;
     `;
+    
+    // 添加动画样式
+    const styleEl = document.createElement('style');
+    styleEl.textContent = `
+        @keyframes notificationPulse {
+            0%, 100% { box-shadow: 0 0 20px ${glowColor}, 0 8px 32px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.2); }
+            50% { box-shadow: 0 0 30px ${glowColor}, 0 8px 32px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.2); }
+        }
+    `;
+    document.head.appendChild(styleEl);
+    
     document.body.appendChild(notification);
     
     setTimeout(() => {
         notification.style.opacity = '1';
-        notification.style.top = '30px';
+        notification.style.top = '35px';
         notification.style.transform = 'translateX(-50%) translateY(0)';
-    }, 100);
+    }, 50);
     
     setTimeout(() => {
         notification.style.opacity = '0';
         notification.style.top = '20px';
         notification.style.transform = 'translateX(-50%) translateY(-10px)';
-        setTimeout(() => notification.remove(), 300);
+        setTimeout(() => {
+            notification.remove();
+            styleEl.remove();
+        }, 400);
     }, duration);
 }
 
@@ -328,46 +360,78 @@ function createProgressBar(title, totalTasks) {
         top: 50%;
         left: 50%;
         transform: translate(-50%, -50%);
-        background: white;
-        padding: 20px;
-        border: 1px solid #ccc;
+        background: linear-gradient(145deg, #1a1a2e 0%, #16213e 100%);
+        padding: 24px;
+        border: 1px solid rgba(0, 255, 136, 0.3);
         z-index: 9999;
-        min-width: 300px;
-        border-radius: 8px;
-        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        min-width: 340px;
+        border-radius: 16px;
+        box-shadow: 
+            0 0 40px rgba(0, 255, 136, 0.15),
+            0 20px 60px rgba(0, 0, 0, 0.5),
+            inset 0 1px 0 rgba(255, 255, 255, 0.05);
+        backdrop-filter: blur(10px);
+        animation: progressGlow 3s ease-in-out infinite;
     `;
+    
+    // 添加动画样式
+    const progressStyle = document.createElement('style');
+    progressStyle.textContent = `
+        @keyframes progressGlow {
+            0%, 100% { box-shadow: 0 0 40px rgba(0, 255, 136, 0.15), 0 20px 60px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.05); }
+            50% { box-shadow: 0 0 50px rgba(0, 255, 136, 0.25), 0 20px 60px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.05); }
+        }
+        @keyframes shimmer {
+            0% { background-position: -200% 0; }
+            100% { background-position: 200% 0; }
+        }
+    `;
+    document.head.appendChild(progressStyle);
 
     const header = document.createElement('div');
     header.style = `
         display: flex;
         justify-content: space-between;
         align-items: center;
-        padding-bottom: 10px;
-        border-bottom: 1px solid #eee;
-        margin-bottom: 10px;
+        padding-bottom: 12px;
+        border-bottom: 1px solid rgba(0, 255, 136, 0.2);
+        margin-bottom: 16px;
     `;
 
     const titleElement = document.createElement('div');
     titleElement.textContent = title;
     titleElement.style.fontWeight = 'bold';
+    titleElement.style.color = '#e0e0e0';
+    titleElement.style.fontSize = '14px';
+    titleElement.style.letterSpacing = '0.5px';
+    titleElement.style.textShadow = '0 0 10px rgba(0, 255, 136, 0.3)';
 
     const minimizeBtn = document.createElement('button');
     minimizeBtn.textContent = '−';
     minimizeBtn.style = `
-        background: none;
-        border: none;
-        font-size: 18px;
+        background: rgba(255, 255, 255, 0.1);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        font-size: 16px;
         cursor: pointer;
-        width: 24px;
-        height: 24px;
+        width: 28px;
+        height: 28px;
         display: flex;
         align-items: center;
         justify-content: center;
-        border-radius: 50%;
-        transition: background 0.2s;
+        border-radius: 6px;
+        transition: all 0.3s ease;
+        color: #e0e0e0;
     `;
-    minimizeBtn.addEventListener('mouseover', () => minimizeBtn.style.background = '#f0f0f0');
-    minimizeBtn.addEventListener('mouseout', () => minimizeBtn.style.background = 'none');
+    minimizeBtn.addEventListener('mouseover', () => {
+        minimizeBtn.style.background = 'rgba(0, 255, 136, 0.2)';
+        minimizeBtn.style.borderColor = 'rgba(0, 255, 136, 0.5)';
+        minimizeBtn.style.boxShadow = '0 0 10px rgba(0, 255, 136, 0.3)';
+    });
+    minimizeBtn.addEventListener('mouseout', () => {
+        minimizeBtn.style.background = 'rgba(255, 255, 255, 0.1)';
+        minimizeBtn.style.borderColor = 'rgba(255, 255, 255, 0.2)';
+        minimizeBtn.style.boxShadow = 'none';
+    });
     minimizeBtn.addEventListener('click', () => {
         loadingElement.style.display = 'none';
         const taskContainer = document.getElementById('background-task');
@@ -386,18 +450,23 @@ function createProgressBar(title, totalTasks) {
     const counterElement = document.createElement('div');
     counterElement.id = 'query-counter';
     counterElement.textContent = `已完成: 0/${totalTasks}`;
-    counterElement.style.marginBottom = '10px';
+    counterElement.style.marginBottom = '12px';
     counterElement.style.textAlign = 'center';
     counterElement.style.fontSize = '14px';
+    counterElement.style.color = '#00ff88';
+    counterElement.style.fontWeight = '600';
+    counterElement.style.textShadow = '0 0 8px rgba(0, 255, 136, 0.5)';
     loadingElement.appendChild(counterElement);
 
     const progressContainer = document.createElement('div');
     progressContainer.style = `
         width: 100%;
-        height: 10px;
-        background: #e0e0e0;
-        border-radius: 5px;
+        height: 12px;
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 6px;
         overflow: hidden;
+        border: 1px solid rgba(0, 255, 136, 0.2);
+        position: relative;
     `;
 
     const progressBar = document.createElement('div');
@@ -405,9 +474,27 @@ function createProgressBar(title, totalTasks) {
     progressBar.style = `
         width: 0%;
         height: 100%;
-        background: linear-gradient(90deg, #4CAF50, #8BC34A);
-        transition: width 0.3s ease;
+        background: linear-gradient(90deg, #00c853, #00ff88, #69f0ae, #00c853);
+        background-size: 200% 100%;
+        border-radius: 6px;
+        transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        box-shadow: 0 0 15px rgba(0, 255, 136, 0.6);
+        animation: shimmer 2s linear infinite;
+        position: relative;
     `;
+    
+    // 添加进度条光效
+    const progressGlow = document.createElement('div');
+    progressGlow.style.cssText = `
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent);
+        border-radius: 6px;
+    `;
+    progressBar.appendChild(progressGlow);
 
     progressContainer.appendChild(progressBar);
     loadingElement.appendChild(progressContainer);
@@ -2684,23 +2771,44 @@ function getRandomQuote() {
 function createHelperUI() {
   if (document.getElementById('helper-container')) return;
   
+  // 添加全局动画样式
+  const helperStyle = document.createElement('style');
+  helperStyle.textContent = `
+    @keyframes borderGlow {
+      0%, 100% { border-color: rgba(0, 255, 136, 0.4); box-shadow: 0 0 20px rgba(0, 255, 136, 0.2), 0 8px 32px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.05); }
+      50% { border-color: rgba(0, 255, 136, 0.6); box-shadow: 0 0 30px rgba(0, 255, 136, 0.35), 0 8px 32px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.05); }
+    }
+    @keyframes breathe {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.7; }
+    }
+    @keyframes slideIn {
+      from { opacity: 0; transform: translateX(20px); }
+      to { opacity: 1; transform: translateX(0); }
+    }
+    #helper-container { animation: slideIn 0.4s ease-out; }
+  `;
+  document.head.appendChild(helperStyle);
+  
   const container = document.createElement('div');
   container.id = 'helper-container';
-  container.style.cssText = `
+  container.style.cssText = \`
     position: fixed;
     top: 20px;
     right: 20px;
-    background: linear-gradient(135deg, #ffffff 0%, #f8fffe 100%);
-    border: none;
+    background: linear-gradient(145deg, rgba(26, 26, 46, 0.95) 0%, rgba(22, 33, 62, 0.95) 100%);
+    border: 1px solid rgba(0, 255, 136, 0.4);
     border-radius: 16px;
-    box-shadow: 0 8px 32px rgba(0,0,0,0.12), 0 2px 8px rgba(46,125,50,0.08);
+    box-shadow: 0 0 20px rgba(0, 255, 136, 0.2), 0 8px 32px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.05);
     z-index: 9999;
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     width: 300px;
     max-width: 90vw;
     overflow: hidden;
-    backdrop-filter: blur(10px);
-  `;
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    animation: borderGlow 4s ease-in-out infinite;
+  \`;
     // === 新增：后台任务进度显示区域 ===
     const taskProgressContainer = document.createElement('div');
     taskProgressContainer.id = 'background-task';
@@ -2775,7 +2883,7 @@ function createHelperUI() {
     justify-content: space-between;
     align-items: center;
     padding: 12px 16px;
-    background: linear-gradient(135deg, #2e7d32 0%, #43a047 100%);
+    background: linear-gradient(135deg, rgba(0, 200, 83, 0.9) 0%, rgba(0, 255, 136, 0.7) 50%, rgba(105, 240, 174, 0.6) 100%);
     color: white;
     border-radius: 16px 16px 0 0;
   `;
@@ -2785,22 +2893,35 @@ function createHelperUI() {
   dragHandle.textContent = '≡';
   dragHandle.style.cssText = `
     cursor: move;
-    font-size: 18px;
-    color: rgba(255,255,255,0.8);
-    transition: color 0.2s;
+    font-size: 20px;
+    color: rgba(255,255,255,0.9);
+    transition: all 0.3s ease;
+    text-shadow: 0 0 8px rgba(255, 255, 255, 0.5);
+    padding: 2px 6px;
+    border-radius: 4px;
   `;
-  dragHandle.addEventListener('mouseover', () => dragHandle.style.color = 'white');
-  dragHandle.addEventListener('mouseout', () => dragHandle.style.color = 'rgba(255,255,255,0.8)');
+  dragHandle.addEventListener('mouseover', () => {
+    dragHandle.style.color = 'white';
+    dragHandle.style.textShadow = '0 0 15px rgba(255, 255, 255, 0.9)';
+    dragHandle.style.background = 'rgba(255, 255, 255, 0.1)';
+  });
+  dragHandle.addEventListener('mouseout', () => {
+    dragHandle.style.color = 'rgba(255,255,255,0.9)';
+    dragHandle.style.textShadow = '0 0 8px rgba(255, 255, 255, 0.5)';
+    dragHandle.style.background = 'transparent';
+  });
   titleBar.appendChild(dragHandle);
 
   // 标题（中）
   const title = document.createElement('div');
   title.textContent = '易鑫云系统助手';
   title.style.cssText = `
-    font-size: 16px;
-    font-weight: 600;
+    font-size: 15px;
+    font-weight: 700;
     color: white;
-    letter-spacing: 1px;
+    letter-spacing: 1.5px;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3), 0 0 15px rgba(255, 255, 255, 0.3);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   `;
   titleBar.appendChild(title);
 
@@ -2816,51 +2937,68 @@ function createHelperUI() {
   const zoomOutBtn = document.createElement('button');
   zoomOutBtn.textContent = '−';
   zoomOutBtn.style.cssText = `
-    background: rgba(255,255,255,0.2);
-    border: none;
+    background: rgba(255,255,255,0.15);
+    border: 1px solid rgba(255,255,255,0.2);
     border-radius: 6px;
     font-size: 14px;
     color: white;
     cursor: pointer;
-    width: 22px;
-    height: 22px;
+    width: 24px;
+    height: 24px;
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: background 0.2s;
+    transition: all 0.3s ease;
   `;
-  zoomOutBtn.addEventListener('mouseover', () => zoomOutBtn.style.background = 'rgba(255,255,255,0.3)');
-  zoomOutBtn.addEventListener('mouseout', () => zoomOutBtn.style.background = 'rgba(255,255,255,0.2)');
+  zoomOutBtn.addEventListener('mouseover', () => {
+    zoomOutBtn.style.background = 'rgba(0, 255, 136, 0.3)';
+    zoomOutBtn.style.borderColor = 'rgba(0, 255, 136, 0.6)';
+    zoomOutBtn.style.boxShadow = '0 0 10px rgba(0, 255, 136, 0.3)';
+  });
+  zoomOutBtn.addEventListener('mouseout', () => {
+    zoomOutBtn.style.background = 'rgba(255,255,255,0.15)';
+    zoomOutBtn.style.borderColor = 'rgba(255,255,255,0.2)';
+    zoomOutBtn.style.boxShadow = 'none';
+  });
   
   // 缩放级别显示
   const zoomLevel = document.createElement('span');
   zoomLevel.textContent = '100%';
   zoomLevel.style.cssText = `
     font-size: 11px;
-    color: rgba(255,255,255,0.85);
+    color: rgba(255,255,255,0.9);
     min-width: 36px;
     text-align: center;
+    text-shadow: 0 0 6px rgba(255,255,255,0.3);
   `;
   
   // 放大按钮
   const zoomInBtn = document.createElement('button');
   zoomInBtn.textContent = '+';
   zoomInBtn.style.cssText = `
-    background: rgba(255,255,255,0.2);
-    border: none;
+    background: rgba(255,255,255,0.15);
+    border: 1px solid rgba(255,255,255,0.2);
     border-radius: 6px;
     font-size: 14px;
     color: white;
     cursor: pointer;
-    width: 22px;
-    height: 22px;
+    width: 24px;
+    height: 24px;
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: background 0.2s;
+    transition: all 0.3s ease;
   `;
-  zoomInBtn.addEventListener('mouseover', () => zoomInBtn.style.background = 'rgba(255,255,255,0.3)');
-  zoomInBtn.addEventListener('mouseout', () => zoomInBtn.style.background = 'rgba(255,255,255,0.2)');
+  zoomInBtn.addEventListener('mouseover', () => {
+    zoomInBtn.style.background = 'rgba(0, 255, 136, 0.3)';
+    zoomInBtn.style.borderColor = 'rgba(0, 255, 136, 0.6)';
+    zoomInBtn.style.boxShadow = '0 0 10px rgba(0, 255, 136, 0.3)';
+  });
+  zoomInBtn.addEventListener('mouseout', () => {
+    zoomInBtn.style.background = 'rgba(255,255,255,0.15)';
+    zoomInBtn.style.borderColor = 'rgba(255,255,255,0.2)';
+    zoomInBtn.style.boxShadow = 'none';
+  });
   
   zoomControls.appendChild(zoomOutBtn);
   zoomControls.appendChild(zoomLevel);
@@ -2870,18 +3008,26 @@ function createHelperUI() {
   const collapseBtn = document.createElement('button');
   collapseBtn.textContent = '−'; // 初始为折叠状态（显示内容）
   collapseBtn.style.cssText = `
-    background: rgba(255,255,255,0.2);
-    border: none;
+    background: rgba(255,255,255,0.15);
+    border: 1px solid rgba(255,255,255,0.2);
     border-radius: 6px;
     font-size: 16px;
     color: white;
     cursor: pointer;
-    padding: 2px 6px;
+    padding: 2px 8px;
     margin-left: 8px;
-    transition: background 0.2s;
+    transition: all 0.3s ease;
   `;
-  collapseBtn.addEventListener('mouseover', () => collapseBtn.style.background = 'rgba(255,255,255,0.3)');
-  collapseBtn.addEventListener('mouseout', () => collapseBtn.style.background = 'rgba(255,255,255,0.2)');
+  collapseBtn.addEventListener('mouseover', () => {
+    collapseBtn.style.background = 'rgba(0, 255, 136, 0.3)';
+    collapseBtn.style.borderColor = 'rgba(0, 255, 136, 0.6)';
+    collapseBtn.style.boxShadow = '0 0 10px rgba(0, 255, 136, 0.3)';
+  });
+  collapseBtn.addEventListener('mouseout', () => {
+    collapseBtn.style.background = 'rgba(255,255,255,0.15)';
+    collapseBtn.style.borderColor = 'rgba(255,255,255,0.2)';
+    collapseBtn.style.boxShadow = 'none';
+  });
   
   zoomControls.appendChild(collapseBtn);
   titleBar.appendChild(zoomControls);
@@ -2977,21 +3123,23 @@ function createHelperUI() {
       letter-spacing: 0.5px;
     `;
         btn.addEventListener('mouseover', () => {
-            btn.style.filter = 'brightness(1.1)';
-            btn.style.transform = 'translateY(-1px)';
-            btn.style.boxShadow = '0 4px 12px rgba(0,0,0,0.15)';
+            btn.style.filter = 'brightness(1.2)';
+            btn.style.transform = 'translateY(-2px)';
+            btn.style.boxShadow = '0 6px 20px rgba(0, 0, 0, 0.35), 0 0 20px rgba(255, 255, 255, 0.1)';
+            btnGlow.style.left = '100%';
         });
         btn.addEventListener('mouseout', () => {
             btn.style.filter = 'none';
             btn.style.transform = 'translateY(0)';
-            btn.style.boxShadow = '0 2px 6px rgba(0,0,0,0.1)';
+            btn.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.15)';
+            btnGlow.style.left = '-100%';
         });
         btn.addEventListener('mousedown', () => {
             btn.style.transform = 'translateY(1px)';
-            btn.style.boxShadow = '0 1px 3px rgba(0,0,0,0.1)';
+            btn.style.boxShadow = '0 2px 6px rgba(0, 0, 0, 0.3)';
         });
         btn.addEventListener('mouseup', () => {
-            btn.style.transform = 'translateY(-1px)';
+            btn.style.transform = 'translateY(-2px)';
         });
         if (button.id) btn.id = button.id;
         btn.addEventListener('click', button.action);
@@ -3077,15 +3225,15 @@ function updateTokenStatus() {
     const statusText = document.getElementById('token-status-text');
     
     if (validateToken()) {
-        statusIndicator.style.backgroundColor = '#4CAF50';
-        statusIndicator.style.boxShadow = '0 0 8px rgba(76, 175, 80, 0.6)';
-        statusText.textContent = 'Token已设置';
-        statusText.style.color = '#2e7d32';
+        statusIndicator.style.backgroundColor = '#00ff88';
+        statusIndicator.style.boxShadow = '0 0 12px rgba(0, 255, 136, 0.8)';
+        statusText.textContent = 'Token已设置 ✓';
+        statusText.style.color = '#00ff88';
     } else {
-        statusIndicator.style.backgroundColor = '#f44336';
-        statusIndicator.style.boxShadow = '0 0 8px rgba(244, 67, 54, 0.5)';
-        statusText.textContent = '未设置Token';
-        statusText.style.color = '#f44336';
+        statusIndicator.style.backgroundColor = '#ff3b30';
+        statusIndicator.style.boxShadow = '0 0 12px rgba(255, 59, 48, 0.6)';
+        statusText.textContent = '未设置Token ✗';
+        statusText.style.color = '#ff6b6b';
     }
 }
 
