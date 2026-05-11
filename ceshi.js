@@ -2792,7 +2792,7 @@ function createHelperUI() {
   
   const container = document.createElement('div');
   container.id = 'helper-container';
-  container.style.cssText = \`
+  container.style.cssText = `
     position: fixed;
     top: 20px;
     right: 20px;
@@ -2808,7 +2808,7 @@ function createHelperUI() {
     backdrop-filter: blur(16px);
     -webkit-backdrop-filter: blur(16px);
     animation: borderGlow 4s ease-in-out infinite;
-  \`;
+  `;
     // === 新增：后台任务进度显示区域 ===
     const taskProgressContainer = document.createElement('div');
     taskProgressContainer.id = 'background-task';
