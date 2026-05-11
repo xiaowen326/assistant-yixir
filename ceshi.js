@@ -525,19 +525,74 @@ function displayResults(results, title) {
         top: 50%;
         left: 50%;
         transform: translate(-50%, -50%);
-        background: white;
-        border: 2px solid #4CAF50;
-        border-radius: 10px;
+        background: linear-gradient(145deg, rgba(26, 26, 46, 0.97) 0%, rgba(22, 33, 62, 0.97) 100%);
+        border: 1px solid rgba(0, 255, 136, 0.3);
+        border-radius: 16px;
         padding: 20px;
-        padding-right: 30px; /* 为滚动条预留空间 */
+        padding-right: 30px;
         max-width: 90vw;
         max-height: 80vh;
         overflow: auto;
-        box-shadow: 0 4px 8px rgba(0,0,0,0.2);
         z-index: 9999;
-        font-family: Arial, sans-serif;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
         box-sizing: content-box;
+        box-shadow: 
+            0 0 40px rgba(0, 255, 136, 0.15),
+            0 20px 60px rgba(0, 0, 0, 0.5),
+            inset 0 1px 0 rgba(255, 255, 255, 0.05);
+        backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px);
+        animation: resultGlow 3s ease-in-out infinite;
     `;
+    
+    // 添加动画和滚动条样式
+    const styleElement = document.createElement('style');
+    styleElement.textContent = `
+        @keyframes resultGlow {
+            0%, 100% { box-shadow: 0 0 40px rgba(0, 255, 136, 0.15), 0 20px 60px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.05); }
+            50% { box-shadow: 0 0 50px rgba(0, 255, 136, 0.25), 0 20px 60px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.05); }
+        }
+        #result-container::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        #result-container::-webkit-scrollbar-track {
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 4px;
+        }
+        #result-container::-webkit-scrollbar-thumb {
+            background: rgba(0, 255, 136, 0.3);
+            border-radius: 4px;
+        }
+        #result-container::-webkit-scrollbar-thumb:hover {
+            background: rgba(0, 255, 136, 0.5);
+        }
+        #result-container table tr:hover td {
+            background: rgba(0, 255, 136, 0.05) !important;
+        }
+        #result-container .copy-btn:hover {
+            background: linear-gradient(135deg, #00ff88 0%, #00c853 100%) !important;
+            box-shadow: 0 0 20px rgba(0, 255, 136, 0.5);
+        }
+        #result-container .close-btn:hover {
+            background: rgba(255, 59, 48, 0.8) !important;
+            box-shadow: 0 0 15px rgba(255, 59, 48, 0.5);
+            border-color: rgba(255, 59, 48, 0.8) !important;
+        }
+        #result-container .back-top-btn:hover {
+            background: linear-gradient(135deg, #00ff88 0%, #00c853 100%) !important;
+            box-shadow: 0 0 20px rgba(0, 255, 136, 0.5);
+        }
+        #result-container a {
+            color: #00ff88;
+            text-decoration: none;
+            transition: all 0.3s ease;
+        }
+        #result-container a:hover {
+            text-shadow: 0 0 10px rgba(0, 255, 136, 0.8);
+        }
+    `;
+    document.head.appendChild(styleElement);
     
     // === 顶部标题栏（包含复制按钮、标题、关闭按钮） ===
     const headerContainer = document.createElement('div');
@@ -547,10 +602,9 @@ function displayResults(results, title) {
         align-items: center;
         margin-bottom: 15px;
         padding: 15px;
-        border: 2px solid #4CAF50;
-        border-radius: 8px;
-        background: linear-gradient(135deg, #f8fff8 0%, #ffffff 100%);
-        box-shadow: 0 2px 8px rgba(76, 175, 80, 0.15);
+        border: 1px solid rgba(0, 255, 136, 0.2);
+        border-radius: 10px;
+        background: linear-gradient(135deg, rgba(0, 255, 136, 0.08) 0%, rgba(0, 201, 87, 0.05) 100%);
         position: sticky;
         top: 0;
         z-index: 100;
@@ -559,13 +613,19 @@ function displayResults(results, title) {
     // 复制按钮
     const copyButton = document.createElement('button');
     copyButton.textContent = '复制结果';
+    copyButton.className = 'copy-btn';
     copyButton.style = `
-        padding: 8px 20px;
-        background: #2196F3;
-        color: white;
-        border: none;
-        border-radius: 4px;
+        padding: 10px 20px;
+        background: linear-gradient(135deg, rgba(0, 201, 87, 0.8) 0%, rgba(0, 255, 136, 0.7) 100%);
+        color: #fff;
+        border: 1px solid rgba(0, 255, 136, 0.4);
+        border-radius: 6px;
         cursor: pointer;
+        font-weight: 600;
+        font-size: 13px;
+        letter-spacing: 0.5px;
+        transition: all 0.3s ease;
+        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
     `;
     copyButton.onclick = () => {
         let text = '';
@@ -605,19 +665,23 @@ function displayResults(results, title) {
     // 标题
     const titleElement = document.createElement('h2');
     titleElement.textContent = title;
-    titleElement.style = 'margin: 0; color: #333; text-align: center; flex: 1;';
+    titleElement.style = 'margin: 0; color: #e0e0e0; text-align: center; flex: 1; font-size: 18px; font-weight: 600; letter-spacing: 0.5px; text-shadow: 0 0 10px rgba(0, 255, 136, 0.3);';
     headerContainer.appendChild(titleElement);
     
     // 关闭按钮
     const closeButton = document.createElement('button');
     closeButton.textContent = '关闭';
+    closeButton.className = 'close-btn';
     closeButton.style = `
-        padding: 8px 20px;
-        background: #f44336;
-        color: white;
-        border: none;
-        border-radius: 4px;
+        padding: 10px 20px;
+        background: rgba(255, 255, 255, 0.1);
+        color: #e0e0e0;
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        border-radius: 6px;
         cursor: pointer;
+        font-weight: 600;
+        font-size: 13px;
+        transition: all 0.3s ease;
     `;
     closeButton.onclick = () => container.remove();
     headerContainer.appendChild(closeButton);
@@ -627,11 +691,11 @@ function displayResults(results, title) {
     if (results.length === 0) {
         const emptyMessage = document.createElement('p');
         emptyMessage.textContent = '未查询到结果';
-        emptyMessage.style = 'text-align: center;';
+        emptyMessage.style = 'text-align: center; color: #888; padding: 40px;';
         container.appendChild(emptyMessage);
     } else {
         const table = document.createElement('table');
-        table.style = 'width: 100%; border-collapse: collapse; min-width: 600px;';
+        table.style = 'width: 100%; border-collapse: collapse; min-width: 600px; color: #e0e0e0;';
         
         // 创建表头
         const headerRow = document.createElement('tr');
@@ -640,19 +704,21 @@ function displayResults(results, title) {
         for (const header of headers) {
             const th = document.createElement('th');
             th.textContent = header;
-            th.style = 'padding: 12px; background: #f2f2f2; text-align: center;';
+            th.style = 'padding: 14px 12px; background: rgba(0, 255, 136, 0.1); text-align: center; color: #00ff88; font-weight: 600; font-size: 13px; letter-spacing: 0.5px; border-bottom: 1px solid rgba(0, 255, 136, 0.3); text-shadow: 0 0 8px rgba(0, 255, 136, 0.3);';
             headerRow.appendChild(th);
         }
         table.appendChild(headerRow);
         
         // 创建数据行
-        for (const result of results) {
+        for (let i = 0; i < results.length; i++) {
+            const result = results[i];
             const row = document.createElement('tr');
+            const isEven = i % 2 === 0;
             
             for (const key in result) {
                 const td = document.createElement('td');
                 td.textContent = result[key];
-                td.style = 'padding: 10px; text-align: center;';
+                td.style = `padding: 12px 10px; text-align: center; border-bottom: 1px solid rgba(0, 255, 136, 0.1); color: #e0e0e0; background: ${isEven ? 'rgba(255, 255, 255, 0.02)' : 'rgba(255, 255, 255, 0.05)'}; transition: background 0.2s ease;`;
 
                 // 特殊处理locationUrl显示为可点击链接
                 if (key === 'locationUrl') {
@@ -663,7 +729,7 @@ function displayResults(results, title) {
                 else if (key === 'historyComplaint') {
                     if (result[key] === true || result[key] === 'true') {
                         td.textContent = '有投诉';
-                        td.style.color = 'red';
+                        td.style.color = '#ff6b6b';
                         td.style.fontWeight = '500';
                     } else if (result[key] === false || result[key] === 'false') {
                         td.textContent = '无';
@@ -679,20 +745,20 @@ function displayResults(results, title) {
                 // 修改还款状态的颜色显示
                 if (key === 'status') {
                     // 其他功能的status字段
-                    td.style.color = result[key] === '成功' ? 'green' : 'red';
+                    td.style.color = result[key] === '成功' ? '#00ff88' : '#ff6b6b';
                 } else if (key === 'status1') {
                     // 还款状态的第一轮查询结果
                     if (result[key] === '已还款') {
-                        td.style.color = 'green';
+                        td.style.color = '#00ff88';
                     } else if (result[key] === '查询失败') {
-                        td.style.color = 'red';
+                        td.style.color = '#ff6b6b';
                     }
                 } else if (key === 'status2') {
                     // 还款状态的第二轮查询结果
                     if (result[key].includes('成功')) {
-                        td.style.color = 'green';
+                        td.style.color = '#00ff88';
                     } else if (result[key].includes('失败')) {
-                        td.style.color = 'red';
+                        td.style.color = '#ff6b6b';
                     }
                 }
                 
@@ -708,15 +774,20 @@ function displayResults(results, title) {
     // 返回顶部按钮
     const backToTopButton = document.createElement('button');
     backToTopButton.textContent = '返回顶部';
+    backToTopButton.className = 'back-top-btn';
     backToTopButton.style = `
         display: block;
         margin: 20px auto 0;
-        padding: 8px 20px;
-        background: #4CAF50;
-        color: white;
-        border: none;
-        border-radius: 4px;
+        padding: 10px 24px;
+        background: linear-gradient(135deg, rgba(0, 201, 87, 0.8) 0%, rgba(0, 255, 136, 0.7) 100%);
+        color: #fff;
+        border: 1px solid rgba(0, 255, 136, 0.4);
+        border-radius: 6px;
         cursor: pointer;
+        font-weight: 600;
+        font-size: 13px;
+        transition: all 0.3s ease;
+        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
     `;
     backToTopButton.onclick = () => {
         container.scrollTop = 0;
