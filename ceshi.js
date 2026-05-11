@@ -3215,39 +3215,77 @@ function createPasswordDialog(callback) {
 }
 
 // == 初始化助手 ==
-// 全局单例：用DOM检测代替GM存储锁，避免页面崩溃导致锁未释放
+// 三层防护：window变量（同页面）+ DOM检测（同页面）+ GM锁心跳过期（跨标签页，崩溃自动恢复）
 (function initHelper() {
     if (window.location.hostname !== 'ares.yxqiche.com' && !window.location.hostname.includes('ares.yxqiche')) {
         return;
     }
 
-    // DOM检测：如果悬浮窗或密码弹窗已存在，说明已有实例在运行，直接跳过
-    if (document.getElementById('helper-container') || document.getElementById('auth-overlay')) {
-        console.log('[易鑫云系统助手] 检测到已有UI实例，跳过初始化');
+    // 第一层：window变量检测（同页面防重复，最可靠）
+    if (window.__yixinHelperInitialized) {
+        console.log('[易鑫云系统助手] window标记已存在，跳过');
         return;
     }
 
-    // 确保document.body已就绪
-    function tryInit() {
-        // 再次DOM检测（防止等待期间其他实例已创建）
-        if (document.getElementById('helper-container') || document.getElementById('auth-overlay')) {
-            console.log('[易鑫云系统助手] 检测到已有UI实例，跳过初始化');
-            return;
-        }
+    // 第二层：DOM检测（同页面兜底）
+    if (document.getElementById('helper-container') || document.getElementById('auth-overlay')) {
+        console.log('[易鑫云系统助手] DOM已存在UI实例，跳过');
+        return;
+    }
 
-        // 清除残留的脏锁（页面崩溃时遗留的）
-        GM_setValue('helper_instance_active', false);
+    // 第三层：GM锁 + 心跳过期（跨标签页防重复，崩溃后30秒自动过期）
+    var lockTime = GM_getValue('helper_instance_active', 0);
+    var now = Date.now();
+    if (lockTime && (now - lockTime) < 30000) {
+        console.log('[易鑫云系统助手] 其他标签页实例运行中（' + Math.round((now - lockTime)/1000) + '秒前活跃），跳过');
+        return;
+    }
+
+    function tryInit() {
+        // 再次三层检测
+        if (window.__yixinHelperInitialized) return;
+        if (document.getElementById('helper-container') || document.getElementById('auth-overlay')) return;
+
+        var lockTime2 = GM_getValue('helper_instance_active', 0);
+        if (lockTime2 && (Date.now() - lockTime2) < 30000) return;
+
+        // 标记本页面已初始化
+        window.__yixinHelperInitialized = true;
+
+        // 写入心跳时间戳（而非简单的true/false）
+        GM_setValue('helper_instance_active', Date.now());
+
+        // 心跳：每10秒刷新一次，让其他标签页知道本实例还活着
+        var heartbeat = setInterval(function() {
+            GM_setValue('helper_instance_active', Date.now());
+        }, 10000);
+
+        // 页面卸载时清除
+        window.addEventListener('beforeunload', function() {
+            GM_setValue('helper_instance_active', 0);
+            clearInterval(heartbeat);
+        });
+        // 页面隐藏/关闭时也清除（移动端兼容）
+        document.addEventListener('visibilitychange', function() {
+            if (document.visibilityState === 'hidden') {
+                // 延迟3秒再判断，避免切tab误清
+                setTimeout(function() {
+                    if (document.visibilityState === 'hidden') {
+                        GM_setValue('helper_instance_active', 0);
+                        clearInterval(heartbeat);
+                    } else {
+                        // 又回来了，重新激活
+                        GM_setValue('helper_instance_active', Date.now());
+                        heartbeat = setInterval(function() {
+                            GM_setValue('helper_instance_active', Date.now());
+                        }, 10000);
+                    }
+                }, 3000);
+            }
+        });
 
         // 先验证密码，通过后再初始化
         createPasswordDialog(function() {
-            // 加锁（兼容旧逻辑，但不依赖它做主要判断）
-            GM_setValue('helper_instance_active', true);
-
-            // 页面卸载时释放锁
-            window.addEventListener('beforeunload', function() {
-                GM_setValue('helper_instance_active', false);
-            });
-
             TOKEN = getTokenFromCookies() || GM_getValue('yixin_token', '') || TOKEN;
             createHelperUI();
             createNotification('易鑫云系统助手已加载!');
@@ -3257,19 +3295,16 @@ function createPasswordDialog(callback) {
     if (document.body) {
         tryInit();
     } else {
-        // document.body还未就绪，等待DOMContentLoaded
         document.addEventListener('DOMContentLoaded', tryInit);
-        // 兜底：如果DOMContentLoaded已经触发过了，用轮询检测
-        let checkCount = 0;
-        let checkTimer = setInterval(function() {
+        var checkCount = 0;
+        var checkTimer = setInterval(function() {
             checkCount++;
             if (document.body) {
                 clearInterval(checkTimer);
                 tryInit();
             } else if (checkCount > 50) {
-                // 5秒超时
                 clearInterval(checkTimer);
-                console.log('[易鑫云系统助手] 等待document.body超时，强制尝试初始化');
+                console.log('[易鑫云系统助手] 等待document.body超时，强制尝试');
                 tryInit();
             }
         }, 100);
