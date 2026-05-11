@@ -3215,32 +3215,65 @@ function createPasswordDialog(callback) {
 }
 
 // == 初始化助手 ==
-// 全局单例：用GM存储做锁，整个浏览器只允许创建一次UI
+// 全局单例：用DOM检测代替GM存储锁，避免页面崩溃导致锁未释放
 (function initHelper() {
     if (window.location.hostname !== 'ares.yxqiche.com' && !window.location.hostname.includes('ares.yxqiche')) {
         return;
     }
 
-    // 检查是否已有实例在运行
-    if (GM_getValue('helper_instance_active', false)) {
-        console.log('[易鑫云系统助手] 已有实例运行，跳过');
+    // DOM检测：如果悬浮窗或密码弹窗已存在，说明已有实例在运行，直接跳过
+    if (document.getElementById('helper-container') || document.getElementById('auth-overlay')) {
+        console.log('[易鑫云系统助手] 检测到已有UI实例，跳过初始化');
         return;
     }
 
-    // 先验证密码，通过后再初始化
-    createPasswordDialog(function() {
-        // 加锁
-        GM_setValue('helper_instance_active', true);
+    // 确保document.body已就绪
+    function tryInit() {
+        // 再次DOM检测（防止等待期间其他实例已创建）
+        if (document.getElementById('helper-container') || document.getElementById('auth-overlay')) {
+            console.log('[易鑫云系统助手] 检测到已有UI实例，跳过初始化');
+            return;
+        }
 
-        // 页面卸载时释放锁
-        window.addEventListener('beforeunload', function() {
-            GM_setValue('helper_instance_active', false);
+        // 清除残留的脏锁（页面崩溃时遗留的）
+        GM_setValue('helper_instance_active', false);
+
+        // 先验证密码，通过后再初始化
+        createPasswordDialog(function() {
+            // 加锁（兼容旧逻辑，但不依赖它做主要判断）
+            GM_setValue('helper_instance_active', true);
+
+            // 页面卸载时释放锁
+            window.addEventListener('beforeunload', function() {
+                GM_setValue('helper_instance_active', false);
+            });
+
+            TOKEN = getTokenFromCookies() || GM_getValue('yixin_token', '') || TOKEN;
+            createHelperUI();
+            createNotification('易鑫云系统助手已加载!');
         });
+    }
 
-        TOKEN = getTokenFromCookies() || GM_getValue('yixin_token', '') || TOKEN;
-        createHelperUI();
-        createNotification('易鑫云系统助手已加载!');
-    });
+    if (document.body) {
+        tryInit();
+    } else {
+        // document.body还未就绪，等待DOMContentLoaded
+        document.addEventListener('DOMContentLoaded', tryInit);
+        // 兜底：如果DOMContentLoaded已经触发过了，用轮询检测
+        let checkCount = 0;
+        let checkTimer = setInterval(function() {
+            checkCount++;
+            if (document.body) {
+                clearInterval(checkTimer);
+                tryInit();
+            } else if (checkCount > 50) {
+                // 5秒超时
+                clearInterval(checkTimer);
+                console.log('[易鑫云系统助手] 等待document.body超时，强制尝试初始化');
+                tryInit();
+            }
+        }, 100);
+    }
 })();
 (function() {
     'use strict';
