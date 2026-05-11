@@ -990,13 +990,18 @@ async function batchQueryApplyNos() {
         top: 50%;
         left: 50%;
         transform: translate(-50%, -50%);
-        background: white;
-        padding: 20px;
-        border: 1px solid #ccc;
+        background: linear-gradient(145deg, #1a1a2e 0%, #16213e 100%);
+        padding: 24px;
+        border: 1px solid rgba(0, 255, 136, 0.3);
         z-index: 9999;
-        min-width: 300px;
-        border-radius: 8px;
-        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        min-width: 340px;
+        border-radius: 16px;
+        box-shadow: 
+            0 0 40px rgba(0, 255, 136, 0.15),
+            0 20px 60px rgba(0, 0, 0, 0.5),
+            inset 0 1px 0 rgba(255, 255, 255, 0.05);
+        backdrop-filter: blur(10px);
+        animation: progressGlow 3s ease-in-out infinite;
     `;
 
     // 创建标题栏（含最小化按钮）
@@ -1005,33 +1010,46 @@ async function batchQueryApplyNos() {
         display: flex;
         justify-content: space-between;
         align-items: center;
-        padding-bottom: 10px;
-        border-bottom: 1px solid #eee;
-        margin-bottom: 10px;
+        padding-bottom: 12px;
+        border-bottom: 1px solid rgba(0, 255, 136, 0.2);
+        margin-bottom: 16px;
     `;
 
     const title = document.createElement('div');
     title.textContent = `正在查询申请号 (${applyNos.length}个)`;
     title.style.fontWeight = 'bold';
+    title.style.color = '#e0e0e0';
+    title.style.fontSize = '14px';
+    title.style.letterSpacing = '0.5px';
+    title.style.textShadow = '0 0 10px rgba(0, 255, 136, 0.3)';
 
     // 创建最小化按钮
     const minimizeBtn = document.createElement('button');
     minimizeBtn.textContent = '−';
     minimizeBtn.style = `
-        background: none;
-        border: none;
-        font-size: 18px;
+        background: rgba(255, 255, 255, 0.1);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        font-size: 16px;
         cursor: pointer;
-        width: 24px;
-        height: 24px;
+        width: 28px;
+        height: 28px;
         display: flex;
         align-items: center;
         justify-content: center;
-        border-radius: 50%;
-        transition: background 0.2s;
+        border-radius: 6px;
+        transition: all 0.3s ease;
+        color: #e0e0e0;
     `;
-    minimizeBtn.addEventListener('mouseover', () => minimizeBtn.style.background = '#f0f0f0');
-    minimizeBtn.addEventListener('mouseout', () => minimizeBtn.style.background = 'none');
+    minimizeBtn.addEventListener('mouseover', () => {
+        minimizeBtn.style.background = 'rgba(0, 255, 136, 0.2)';
+        minimizeBtn.style.borderColor = 'rgba(0, 255, 136, 0.5)';
+        minimizeBtn.style.boxShadow = '0 0 10px rgba(0, 255, 136, 0.3)';
+    });
+    minimizeBtn.addEventListener('mouseout', () => {
+        minimizeBtn.style.background = 'rgba(255, 255, 255, 0.1)';
+        minimizeBtn.style.borderColor = 'rgba(255, 255, 255, 0.2)';
+        minimizeBtn.style.boxShadow = 'none';
+    });
     minimizeBtn.addEventListener('click', () => {
         loadingElement.style.display = 'none';
         const taskContainer = document.getElementById('background-task');
@@ -1051,18 +1069,24 @@ async function batchQueryApplyNos() {
     const counterElement = document.createElement('div');
     counterElement.id = 'query-counter';
     counterElement.textContent = `已完成: 0/${applyNos.length}`;
-    counterElement.style.marginBottom = '10px';
+    counterElement.style.marginBottom = '12px';
     counterElement.style.textAlign = 'center';
     counterElement.style.fontSize = '14px';
+    counterElement.style.color = '#00ff88';
+    counterElement.style.fontWeight = '600';
+    counterElement.style.textShadow = '0 0 8px rgba(0, 255, 136, 0.5)';
     loadingElement.appendChild(counterElement);
 
     // 创建进度条容器
     const progressContainer = document.createElement('div');
     progressContainer.style = `
         width: 100%;
-        height: 10px;
-        background: #e0e0e0;
-        border-radius: 5px;
+        height: 12px;
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 6px;
+        overflow: hidden;
+        border: 1px solid rgba(0, 255, 136, 0.2);
+        position: relative;
     `;
 
     // 创建进度条
@@ -1071,9 +1095,13 @@ async function batchQueryApplyNos() {
     progressBar.style = `
         width: 0%;
         height: 100%;
-        background: #4CAF50;
-        border-radius: 5px;
-        transition: width 0.3s ease;
+        background: linear-gradient(90deg, #00c853, #00ff88, #69f0ae, #00c853);
+        background-size: 200% 100%;
+        border-radius: 6px;
+        transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        box-shadow: 0 0 15px rgba(0, 255, 136, 0.6);
+        animation: shimmer 2s linear infinite;
+        position: relative;
     `;
 
     progressContainer.appendChild(progressBar);
@@ -1657,13 +1685,18 @@ async function batchQueryRepayment() {
         top: 50%;
         left: 50%;
         transform: translate(-50%, -50%);
-        background: white;
-        padding: 20px;
-        border: 1px solid #ccc;
+        background: linear-gradient(145deg, #1a1a2e 0%, #16213e 100%);
+        padding: 24px;
+        border: 1px solid rgba(0, 255, 136, 0.3);
         z-index: 9999;
-        min-width: 300px;
-        border-radius: 8px;
-        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        min-width: 340px;
+        border-radius: 16px;
+        box-shadow: 
+            0 0 40px rgba(0, 255, 136, 0.15),
+            0 20px 60px rgba(0, 0, 0, 0.5),
+            inset 0 1px 0 rgba(255, 255, 255, 0.05);
+        backdrop-filter: blur(10px);
+        animation: progressGlow 3s ease-in-out infinite;
     `;
 
     // 创建标题栏（含最小化按钮）
@@ -1672,33 +1705,46 @@ async function batchQueryRepayment() {
         display: flex;
         justify-content: space-between;
         align-items: center;
-        padding-bottom: 10px;
-        border-bottom: 1px solid #eee;
-        margin-bottom: 10px;
+        padding-bottom: 12px;
+        border-bottom: 1px solid rgba(0, 255, 136, 0.2);
+        margin-bottom: 16px;
     `;
 
     const title = document.createElement('div');
     title.textContent = `正在查询还款状态 (${applyNos.length}个申请号)`;
     title.style.fontWeight = 'bold';
+    title.style.color = '#e0e0e0';
+    title.style.fontSize = '14px';
+    title.style.letterSpacing = '0.5px';
+    title.style.textShadow = '0 0 10px rgba(0, 255, 136, 0.3)';
 
     // 创建最小化按钮
     const minimizeBtn = document.createElement('button');
     minimizeBtn.textContent = '−';
     minimizeBtn.style = `
-        background: none;
-        border: none;
-        font-size: 18px;
+        background: rgba(255, 255, 255, 0.1);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        font-size: 16px;
         cursor: pointer;
-        width: 24px;
-        height: 24px;
+        width: 28px;
+        height: 28px;
         display: flex;
         align-items: center;
         justify-content: center;
-        border-radius: 50%;
-        transition: background 0.2s;
+        border-radius: 6px;
+        transition: all 0.3s ease;
+        color: #e0e0e0;
     `;
-    minimizeBtn.addEventListener('mouseover', () => minimizeBtn.style.background = '#f0f0f0');
-    minimizeBtn.addEventListener('mouseout', () => minimizeBtn.style.background = 'none');
+    minimizeBtn.addEventListener('mouseover', () => {
+        minimizeBtn.style.background = 'rgba(0, 255, 136, 0.2)';
+        minimizeBtn.style.borderColor = 'rgba(0, 255, 136, 0.5)';
+        minimizeBtn.style.boxShadow = '0 0 10px rgba(0, 255, 136, 0.3)';
+    });
+    minimizeBtn.addEventListener('mouseout', () => {
+        minimizeBtn.style.background = 'rgba(255, 255, 255, 0.1)';
+        minimizeBtn.style.borderColor = 'rgba(255, 255, 255, 0.2)';
+        minimizeBtn.style.boxShadow = 'none';
+    });
     minimizeBtn.addEventListener('click', () => {
         loadingElement.style.display = 'none';
         const taskContainer = document.getElementById('background-task');
@@ -1718,18 +1764,24 @@ async function batchQueryRepayment() {
     const counterElement = document.createElement('div');
     counterElement.id = 'repayment-counter';
     counterElement.textContent = `已完成: 0/${applyNos.length}`;
-    counterElement.style.marginBottom = '10px';
+    counterElement.style.marginBottom = '12px';
     counterElement.style.textAlign = 'center';
     counterElement.style.fontSize = '14px';
+    counterElement.style.color = '#00ff88';
+    counterElement.style.fontWeight = '600';
+    counterElement.style.textShadow = '0 0 8px rgba(0, 255, 136, 0.5)';
     loadingElement.appendChild(counterElement);
 
     // 创建进度条容器
     const progressContainer = document.createElement('div');
     progressContainer.style = `
         width: 100%;
-        height: 10px;
-        background: #e0e0e0;
-        border-radius: 5px;
+        height: 12px;
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 6px;
+        overflow: hidden;
+        border: 1px solid rgba(0, 255, 136, 0.2);
+        position: relative;
     `;
 
     // 创建进度条
@@ -1738,9 +1790,13 @@ async function batchQueryRepayment() {
     progressBar.style = `
         width: 0%;
         height: 100%;
-        background: #4CAF50;
-        border-radius: 5px;
-        transition: width 0.3s ease;
+        background: linear-gradient(90deg, #00c853, #00ff88, #69f0ae, #00c853);
+        background-size: 200% 100%;
+        border-radius: 6px;
+        transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        box-shadow: 0 0 15px rgba(0, 255, 136, 0.6);
+        animation: shimmer 2s linear infinite;
+        position: relative;
     `;
 
     progressContainer.appendChild(progressBar);
@@ -1962,13 +2018,18 @@ async function addBatchRemarks() {
         top: 50%;
         left: 50%;
         transform: translate(-50%, -50%);
-        background: white;
-        padding: 20px;
-        border: 1px solid #ccc;
+        background: linear-gradient(145deg, #1a1a2e 0%, #16213e 100%);
+        padding: 24px;
+        border: 1px solid rgba(0, 255, 136, 0.3);
         z-index: 9999;
-        min-width: 300px;
-        border-radius: 8px;
-        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        min-width: 340px;
+        border-radius: 16px;
+        box-shadow: 
+            0 0 40px rgba(0, 255, 136, 0.15),
+            0 20px 60px rgba(0, 0, 0, 0.5),
+            inset 0 1px 0 rgba(255, 255, 255, 0.05);
+        backdrop-filter: blur(10px);
+        animation: progressGlow 3s ease-in-out infinite;
     `;
 
     // 创建标题栏（含最小化按钮）
@@ -1977,33 +2038,46 @@ async function addBatchRemarks() {
         display: flex;
         justify-content: space-between;
         align-items: center;
-        padding-bottom: 10px;
-        border-bottom: 1px solid #eee;
-        margin-bottom: 10px;
+        padding-bottom: 12px;
+        border-bottom: 1px solid rgba(0, 255, 136, 0.2);
+        margin-bottom: 16px;
     `;
 
     const title = document.createElement('div');
     title.textContent = `正在添加催记 (${entries.length}个)`;
     title.style.fontWeight = 'bold';
+    title.style.color = '#e0e0e0';
+    title.style.fontSize = '14px';
+    title.style.letterSpacing = '0.5px';
+    title.style.textShadow = '0 0 10px rgba(0, 255, 136, 0.3)';
 
     // 创建最小化按钮
     const minimizeBtn = document.createElement('button');
     minimizeBtn.textContent = '−';
     minimizeBtn.style = `
-        background: none;
-        border: none;
-        font-size: 18px;
+        background: rgba(255, 255, 255, 0.1);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        font-size: 16px;
         cursor: pointer;
-        width: 24px;
-        height: 24px;
+        width: 28px;
+        height: 28px;
         display: flex;
         align-items: center;
         justify-content: center;
-        border-radius: 50%;
-        transition: background 0.2s;
+        border-radius: 6px;
+        transition: all 0.3s ease;
+        color: #e0e0e0;
     `;
-    minimizeBtn.addEventListener('mouseover', () => minimizeBtn.style.background = '#f0f0f0');
-    minimizeBtn.addEventListener('mouseout', () => minimizeBtn.style.background = 'none');
+    minimizeBtn.addEventListener('mouseover', () => {
+        minimizeBtn.style.background = 'rgba(0, 255, 136, 0.2)';
+        minimizeBtn.style.borderColor = 'rgba(0, 255, 136, 0.5)';
+        minimizeBtn.style.boxShadow = '0 0 10px rgba(0, 255, 136, 0.3)';
+    });
+    minimizeBtn.addEventListener('mouseout', () => {
+        minimizeBtn.style.background = 'rgba(255, 255, 255, 0.1)';
+        minimizeBtn.style.borderColor = 'rgba(255, 255, 255, 0.2)';
+        minimizeBtn.style.boxShadow = 'none';
+    });
     minimizeBtn.addEventListener('click', () => {
         loadingElement.style.display = 'none';
         const taskContainer = document.getElementById('background-task');
@@ -2023,18 +2097,24 @@ async function addBatchRemarks() {
     const counterElement = document.createElement('div');
     counterElement.id = 'remark-counter';
     counterElement.textContent = `已完成: 0/${entries.length}`;
-    counterElement.style.marginBottom = '10px';
+    counterElement.style.marginBottom = '12px';
     counterElement.style.textAlign = 'center';
     counterElement.style.fontSize = '14px';
+    counterElement.style.color = '#00ff88';
+    counterElement.style.fontWeight = '600';
+    counterElement.style.textShadow = '0 0 8px rgba(0, 255, 136, 0.5)';
     loadingElement.appendChild(counterElement);
 
     // 创建进度条容器
     const progressContainer = document.createElement('div');
     progressContainer.style = `
         width: 100%;
-        height: 10px;
-        background: #e0e0e0;
-        border-radius: 5px;
+        height: 12px;
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 6px;
+        overflow: hidden;
+        border: 1px solid rgba(0, 255, 136, 0.2);
+        position: relative;
     `;
 
     // 创建进度条
@@ -2043,9 +2123,13 @@ async function addBatchRemarks() {
     progressBar.style = `
         width: 0%;
         height: 100%;
-        background: #4CAF50;
-        border-radius: 5px;
-        transition: width 0.3s ease;
+        background: linear-gradient(90deg, #00c853, #00ff88, #69f0ae, #00c853);
+        background-size: 200% 100%;
+        border-radius: 6px;
+        transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        box-shadow: 0 0 15px rgba(0, 255, 136, 0.6);
+        animation: shimmer 2s linear infinite;
+        position: relative;
     `;
 
     progressContainer.appendChild(progressBar);
@@ -2171,13 +2255,18 @@ async function AiBaseInfo() {
         top: 50%;
         left: 50%;
         transform: translate(-50%, -50%);
-        background: white;
-        padding: 20px;
-        border: 1px solid #ccc;
+        background: linear-gradient(145deg, #1a1a2e 0%, #16213e 100%);
+        padding: 24px;
+        border: 1px solid rgba(0, 255, 136, 0.3);
         z-index: 9999;
-        min-width: 300px;
-        border-radius: 8px;
-        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        min-width: 340px;
+        border-radius: 16px;
+        box-shadow: 
+            0 0 40px rgba(0, 255, 136, 0.15),
+            0 20px 60px rgba(0, 0, 0, 0.5),
+            inset 0 1px 0 rgba(255, 255, 255, 0.05);
+        backdrop-filter: blur(10px);
+        animation: progressGlow 3s ease-in-out infinite;
     `;
 
     // 创建标题栏（含最小化按钮）
@@ -2186,38 +2275,51 @@ async function AiBaseInfo() {
         display: flex;
         justify-content: space-between;
         align-items: center;
-        padding-bottom: 10px;
-        border-bottom: 1px solid #eee;
-        margin-bottom: 10px;
+        padding-bottom: 12px;
+        border-bottom: 1px solid rgba(0, 255, 136, 0.2);
+        margin-bottom: 16px;
     `;
 
     const title = document.createElement('div');
-    title.textContent = `正在查询申请号 (${applyNos.length}个)`;
+    title.textContent = `正在查询客户画像 (${applyNos.length}个)`;
     title.style.fontWeight = 'bold';
+    title.style.color = '#e0e0e0';
+    title.style.fontSize = '14px';
+    title.style.letterSpacing = '0.5px';
+    title.style.textShadow = '0 0 10px rgba(0, 255, 136, 0.3)';
 
     // 创建最小化按钮
     const minimizeBtn = document.createElement('button');
     minimizeBtn.textContent = '−';
     minimizeBtn.style = `
-        background: none;
-        border: none;
-        font-size: 18px;
+        background: rgba(255, 255, 255, 0.1);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        font-size: 16px;
         cursor: pointer;
-        width: 24px;
-        height: 24px;
+        width: 28px;
+        height: 28px;
         display: flex;
         align-items: center;
         justify-content: center;
-        border-radius: 50%;
-        transition: background 0.2s;
+        border-radius: 6px;
+        transition: all 0.3s ease;
+        color: #e0e0e0;
     `;
-    minimizeBtn.addEventListener('mouseover', () => minimizeBtn.style.background = '#f0f0f0');
-    minimizeBtn.addEventListener('mouseout', () => minimizeBtn.style.background = 'none');
+    minimizeBtn.addEventListener('mouseover', () => {
+        minimizeBtn.style.background = 'rgba(0, 255, 136, 0.2)';
+        minimizeBtn.style.borderColor = 'rgba(0, 255, 136, 0.5)';
+        minimizeBtn.style.boxShadow = '0 0 10px rgba(0, 255, 136, 0.3)';
+    });
+    minimizeBtn.addEventListener('mouseout', () => {
+        minimizeBtn.style.background = 'rgba(255, 255, 255, 0.1)';
+        minimizeBtn.style.borderColor = 'rgba(255, 255, 255, 0.2)';
+        minimizeBtn.style.boxShadow = 'none';
+    });
     minimizeBtn.addEventListener('click', () => {
         loadingElement.style.display = 'none';
         const taskContainer = document.getElementById('background-task');
         if (taskContainer) {
-            document.getElementById('task-title').textContent = `任务: 查询申请号`;
+            document.getElementById('task-title').textContent = `任务: 查询客户画像`;
             document.getElementById('task-progress-text').textContent = `已完成: ${completed}/${applyNos.length}`;
             document.getElementById('task-progress-bar').style.width = `${(completed / applyNos.length) * 100}%`;
             taskContainer.style.display = 'block';
@@ -2232,18 +2334,24 @@ async function AiBaseInfo() {
     const counterElement = document.createElement('div');
     counterElement.id = 'query-counter';
     counterElement.textContent = `已完成: 0/${applyNos.length}`;
-    counterElement.style.marginBottom = '10px';
+    counterElement.style.marginBottom = '12px';
     counterElement.style.textAlign = 'center';
     counterElement.style.fontSize = '14px';
+    counterElement.style.color = '#00ff88';
+    counterElement.style.fontWeight = '600';
+    counterElement.style.textShadow = '0 0 8px rgba(0, 255, 136, 0.5)';
     loadingElement.appendChild(counterElement);
 
     // 创建进度条容器
     const progressContainer = document.createElement('div');
     progressContainer.style = `
         width: 100%;
-        height: 10px;
-        background: #e0e0e0;
-        border-radius: 5px;
+        height: 12px;
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 6px;
+        overflow: hidden;
+        border: 1px solid rgba(0, 255, 136, 0.2);
+        position: relative;
     `;
 
     // 创建进度条
@@ -2252,9 +2360,13 @@ async function AiBaseInfo() {
     progressBar.style = `
         width: 0%;
         height: 100%;
-        background: #4CAF50;
-        border-radius: 5px;
-        transition: width 0.3s ease;
+        background: linear-gradient(90deg, #00c853, #00ff88, #69f0ae, #00c853);
+        background-size: 200% 100%;
+        border-radius: 6px;
+        transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        box-shadow: 0 0 15px rgba(0, 255, 136, 0.6);
+        animation: shimmer 2s linear infinite;
+        position: relative;
     `;
 
     progressContainer.appendChild(progressBar);
