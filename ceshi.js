@@ -3097,7 +3097,7 @@ function createHelperUI() {
 
   // 标题（中）
   const title = document.createElement('div');
-  title.textContent = '易鑫云系统助手';
+  title.textContent = '系统云助手';
   title.style.cssText = `
     font-size: 15px;
     font-weight: 700;
@@ -3224,7 +3224,7 @@ function createHelperUI() {
     padding: 10px 16px;
     color: #7c9a82;
     font-style: italic;
-    font-size: 12px;
+    font-size: 13px;
     border-bottom: 1px solid rgba(46,125,50,0.1);
     min-height: 36px;
     background: rgba(46,125,50,0.03);
@@ -3619,7 +3619,7 @@ function createPasswordDialog(callback) {
         createPasswordDialog(function() {
             TOKEN = getTokenFromCookies() || GM_getValue('yixin_token', '') || TOKEN;
             createHelperUI();
-            createNotification('易鑫云系统助手已加载!');
+            createNotification('系统云助手已加载!');
         });
     }
 
