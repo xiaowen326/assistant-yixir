@@ -3546,34 +3546,101 @@ function createPasswordDialog(callback) {
 }
 
 // == 初始化助手 ==
-// 同页面防重复：window变量 + DOM检测（去掉跨标签页GM锁，每个标签页独立初始化）
+// 跨标签页单实例：window变量 + DOM检测 + GM锁(5秒心跳,15秒过期,崩溃快速恢复)
 (function initHelper() {
     if (window.location.hostname !== 'ares.yxqiche.com' && !window.location.hostname.includes('ares.yxqiche')) {
         return;
     }
 
-    // 第一层：window变量检测（同页面防重复，最可靠）
+    // 同页面防重复
     if (window.__yixinHelperInitialized) {
-        console.log('[系统云助手] window标记已存在，跳过');
+        console.log('[系统云助手] 本页已初始化，跳过');
         return;
     }
-
-    // 第二层：DOM检测（同页面兜底）
     if (document.getElementById('helper-container') || document.getElementById('auth-overlay')) {
-        console.log('[系统云助手] DOM已存在UI实例，跳过');
+        console.log('[系统云助手] DOM已存在，跳过');
         return;
     }
 
-    // 清除可能残留的旧锁
-    try { GM_setValue('helper_instance_active', 0); } catch(e) {}
+    // 生成唯一标签页ID
+    var tabId = Date.now() + '_' + Math.random().toString(36).substr(2, 6);
+    var heartbeatTimer = null;
+
+    // 检查其他标签页是否持有锁且仍在活跃
+    function isLockHeldByOther() {
+        try {
+            var lock = GM_getValue('helper_instance_lock', null);
+            if (!lock) return false;
+            // 锁格式: {tabId: 'xxx', ts: timestamp}
+            if (typeof lock === 'object' && lock.tabId !== tabId) {
+                var age = Date.now() - lock.ts;
+                if (age < 15000) {
+                    // 其他标签页持有锁且心跳在15秒内，说明还活着
+                    return true;
+                }
+            }
+        } catch(e) {}
+        return false;
+    }
+
+    // 抢占锁
+    function acquireLock() {
+        try {
+            GM_setValue('helper_instance_lock', {tabId: tabId, ts: Date.now()});
+        } catch(e) {}
+    }
+
+    // 释放锁（只释放自己的）
+    function releaseLock() {
+        try {
+            var lock = GM_getValue('helper_instance_lock', null);
+            if (lock && typeof lock === 'object' && lock.tabId === tabId) {
+                GM_setValue('helper_instance_lock', null);
+            }
+        } catch(e) {}
+    }
+
+    // 启动心跳
+    function startHeartbeat() {
+        if (heartbeatTimer) clearInterval(heartbeatTimer);
+        heartbeatTimer = setInterval(function() {
+            acquireLock();
+        }, 5000);
+    }
+
+    // 停止心跳
+    function stopHeartbeat() {
+        if (heartbeatTimer) {
+            clearInterval(heartbeatTimer);
+            heartbeatTimer = null;
+        }
+    }
 
     function tryInit() {
-        // 再次检测
         if (window.__yixinHelperInitialized) return;
         if (document.getElementById('helper-container') || document.getElementById('auth-overlay')) return;
 
-        // 标记本页面已初始化
+        // 检查其他标签页是否在运行
+        if (isLockHeldByOther()) {
+            console.log('[系统云助手] 其他标签页实例运行中，本页跳过');
+            return;
+        }
+
+        // 标记+抢占锁
         window.__yixinHelperInitialized = true;
+        acquireLock();
+        startHeartbeat();
+
+        // 页面卸载时释放锁
+        window.addEventListener('beforeunload', function() {
+            releaseLock();
+            stopHeartbeat();
+        });
+        // pagehide兼容（移动端/强制关闭）
+        window.addEventListener('pagehide', function() {
+            releaseLock();
+            stopHeartbeat();
+        });
 
         // 先验证密码，通过后再初始化
         createPasswordDialog(function() {
@@ -3595,7 +3662,6 @@ function createPasswordDialog(callback) {
                 tryInit();
             } else if (checkCount > 50) {
                 clearInterval(checkTimer);
-                console.log('[系统云助手] 等待document.body超时，强制尝试');
                 tryInit();
             }
         }, 100);
