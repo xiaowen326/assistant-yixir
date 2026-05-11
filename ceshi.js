@@ -3564,10 +3564,10 @@ function createPasswordDialog(callback) {
         return;
     }
 
-    // 第三层：GM锁 + 心跳过期（跨标签页防重复，崩溃后30秒自动过期）
+    // 第三层：GM锁 + 心跳过期（跨标签页防重复，崩溃后3000秒自动过期）
     var lockTime = GM_getValue('helper_instance_active', 0);
     var now = Date.now();
-    if (lockTime && (now - lockTime) < 30000) {
+    if (lockTime && (now - lockTime) < 3000000) {
         console.log('[易鑫云系统助手] 其他标签页实例运行中（' + Math.round((now - lockTime)/1000) + '秒前活跃），跳过');
         return;
     }
@@ -3578,7 +3578,7 @@ function createPasswordDialog(callback) {
         if (document.getElementById('helper-container') || document.getElementById('auth-overlay')) return;
 
         var lockTime2 = GM_getValue('helper_instance_active', 0);
-        if (lockTime2 && (Date.now() - lockTime2) < 30000) return;
+        if (lockTime2 && (Date.now() - lockTime2) < 3000000) return;
 
         // 标记本页面已初始化
         window.__yixinHelperInitialized = true;
