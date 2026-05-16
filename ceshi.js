@@ -12,6 +12,33 @@ var GM_xmlhttpRequest = window.__GM_xmlhttpRequest || function(opts) {
 };
 // == 桥接结束 ==
 
+// == 手机号归属地查询 ==
+async function getPhoneLocation(phone) {
+    if (!phone || phone === '无' || phone.replace(/\D/g, '').length < 7) return '未知';
+    const purePhone = phone.replace(/\D/g, '');
+    try {
+        const resp = await new Promise((resolve, reject) => {
+            GM_xmlhttpRequest({
+                method: 'GET',
+                url: `https://cx.shouji.360.cn/phonearea.php?number=${purePhone.substring(0, 7)}`,
+                onload: resolve,
+                onerror: reject
+            });
+        });
+        const data = JSON.parse(resp.responseText);
+        if (data.code === 0 && data.data) {
+            const province = data.data.province || '';
+            const city = data.data.city || '';
+            const sp = data.data.sp || '';
+            const location = province + city + sp;
+            return location || '未知';
+        }
+        return '未知';
+    } catch (e) {
+        return '未知';
+    }
+}
+
 // == 全局配置 ==
 const BASE_URL = "https://ares.yxqiche.com";
 let TOKEN = "";
@@ -872,7 +899,8 @@ async function batchQuerySMSData() {
                             逾期天数: overdueDays || '无',
                             关系: contact.relation || '无',
                             联系人姓名: contact.name || '无',
-                            联系人电话: contact.plaintextPhone || '无'
+                            联系人电话: contact.plaintextPhone || '无',
+                            归属地: await getPhoneLocation(contact.plaintextPhone)
                         });
                     }
                 } else {
@@ -888,7 +916,8 @@ async function batchQuerySMSData() {
                         逾期天数: overdueDays || '无',
                         关系: '无',
                         联系人姓名: '无联系人',
-                        联系人电话: '无'
+                        联系人电话: '无',
+                        归属地: '无'
                     });
                 }
                 
@@ -907,7 +936,8 @@ async function batchQuerySMSData() {
                     居住地址: '无地址', // 错误时保持"无地址"
                     逾期天数: '无',
                     联系人姓名: '无',
-                    联系人电话: '无'
+                    联系人电话: '无',
+                    归属地: '未知'
                 }];
             } finally {
                 // 更新进度
