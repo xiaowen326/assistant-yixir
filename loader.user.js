@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         易鑫云测试版
 // @namespace    http://tampermonkey.net/
-// @version      13.0
+// @version      14.0
 // @description  易鑫云助手测试版 - 从远程加载核心脚本
 // @match        https://yun.yxqiche.com/*
 // @match        https://ares.yxqiche.com/*
@@ -12,10 +12,16 @@
 // @run-at       document-idle
 // @connect      raw.githubusercontent.com
 // @connect      xiaowen326.github.io
+// @connect      cx.shouji.360.cn
 // ==/UserScript==
 
 (function() {
     'use strict';
+
+    // 暴露GM API到window，供核心脚本使用
+    window.__GM_setValue = GM_setValue;
+    window.__GM_getValue = GM_getValue;
+    window.__GM_xmlhttpRequest = GM_xmlhttpRequest;
 
     // 测试版远程地址
     var REMOTE_URL = 'https://xiaowen326.github.io/assistant-yixir/ceshi.js';
