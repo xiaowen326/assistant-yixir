@@ -779,12 +779,6 @@ function getPhoneLocation(phone) {
 }
 
 // 根据手机号查询归属地
-function getPhoneLocation(phone) {
-    if (!phone || phone.length < 7) return "未知";
-    const prefix = phone.replace(/\D/g, "").substring(0, 7);
-    return PHONE_LOCATION_DB[prefix] || "未知";
-}
-
 // == 水印控制 ==
 let WATERMARK_HIDDEN = GM_getValue('watermark_hidden', true); // 默认隐藏水印
 
