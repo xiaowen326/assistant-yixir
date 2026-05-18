@@ -980,11 +980,23 @@ async function batchDoCall() {
         return;
     }
 
+    // 外呼速度选择（10-60秒）
+    const speedInput = showPrompt('外呼速度', '请输入外呼间隔秒数（10-60秒，默认20秒）:');
+    let callInterval = 20;
+    if (speedInput) {
+        const parsed = parseInt(speedInput.trim());
+        if (!isNaN(parsed) && parsed >= 10 && parsed <= 60) {
+            callInterval = parsed;
+        } else {
+            createNotification('外呼间隔无效，使用默认20秒', false);
+        }
+    }
+
     // 重置取消标志
     window._batchCallAborted = false;
 
     // 使用公共进度条组件
-    const { loadingElement, counterElement, progressBar } = createProgressBar(`正在外呼 (${applyNos.length}个号码)`, applyNos.length);
+    const { loadingElement, counterElement, progressBar } = createProgressBar(`正在外呼 (${applyNos.length}个号码, 间隔${callInterval}秒)`, applyNos.length);
 
     // 添加当前外呼号码显示元素
     const currentPhoneElement = document.createElement('div');
@@ -1090,9 +1102,9 @@ async function batchDoCall() {
                 updateProgress(counterElement, progressBar, completed, applyNos.length);
             }
 
-            // 间隔20秒
+            // 间隔自定义秒数
             if (index < applyNos.length - 1 && !window._batchCallAborted) {
-                await new Promise(r => setTimeout(r, 20000));
+                await new Promise(r => setTimeout(r, callInterval * 1000));
             }
         }
 
@@ -1249,9 +1261,9 @@ async function batchRealTimeCharge() {
                 updateProgress(counterElement, progressBar, completed, applyNos.length);
             }
 
-            // 间隔500ms，避免请求过快
+            // 间隔200ms
             if (index < applyNos.length - 1) {
-                await new Promise(r => setTimeout(r, 500));
+                await new Promise(r => setTimeout(r, 200));
             }
         }
 
