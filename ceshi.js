@@ -12,8 +12,8 @@ var GM_xmlhttpRequest = window.__GM_xmlhttpRequest || function(opts) {
 };
 // == 桥接结束 ==
 
-// == 版本标记 v20260518C ==
-window.__CESHI_VERSION = 'v20260518C';
+// == 版本标记 v20260518D ==
+window.__CESHI_VERSION = 'v20260518D';
 // == 全局配置 ==
 const BASE_URL = "https://ares.yxqiche.com";
 let TOKEN = "";
@@ -1082,7 +1082,7 @@ async function batchDoCall() {
     window._batchCallAborted = false;
 
     // 使用公共进度条组件
-    const { loadingElement, counterElement, progressBar } = createProgressBar(`正在外呼 (${applyNos.length}个号码, 间隔${callInterval}秒)`, applyNos.length);
+    const { loadingElement, counterElement, progressBar } = createProgressBar(`正在外呼 (${applyNos.length}个号码, 间隔40秒)`, applyNos.length);
 
     // 添加当前外呼号码显示元素
     const currentPhoneElement = document.createElement('div');
