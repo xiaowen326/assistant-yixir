@@ -12,6 +12,8 @@ var GM_xmlhttpRequest = window.__GM_xmlhttpRequest || function(opts) {
 };
 // == 桥接结束 ==
 
+// == 版本标记 v20260518C ==
+window.__CESHI_VERSION = 'v20260518C';
 // == 全局配置 ==
 const BASE_URL = "https://ares.yxqiche.com";
 let TOKEN = "";
@@ -1043,7 +1045,8 @@ async function batchDoCall() {
         return;
     }
 
-    const applyNosInput = showPrompt('批量外呼', '请输入申请编号列表（多个用逗号或换行分隔）:');
+    // 第1步：输入申请编号（自定义弹窗）
+    const applyNosInput = await asyncPrompt('批量外呼 - 第1步', '请输入申请编号列表（多个用逗号或换行分隔）:');
     if (!applyNosInput) return;
 
     const applyNos = applyNosInput.split(/[\n,，\s]+/).filter(no => no.trim());
@@ -1052,9 +1055,8 @@ async function batchDoCall() {
         return;
     }
 
-    const phonesInput = showPrompt('批量外呼', `请按顺序输入 ${applyNos.length} 个手机号（用相同分隔符）
-
-外呼间隔秒数(10-60，默认20):`);
+    // 第2步：输入手机号（自定义弹窗）
+    const phonesInput = await asyncPrompt('批量外呼 - 第2步', `请按顺序输入 ${applyNos.length} 个手机号（用相同分隔符）:`);
     if (!phonesInput) return;
 
     const phones = phonesInput.split(/[\n,，\s]+/).filter(p => p.trim());
@@ -1064,11 +1066,9 @@ async function batchDoCall() {
         return;
     }
 
-    // 外呼速度选择 - 使用自定义弹窗避免浏览器拦截
+    // 第3步：选择外呼速度（自定义弹窗）
     let callInterval = 20;
-    createNotification('正在打开速度选择弹窗...', false);
-    const speedInput = await asyncPrompt('外呼速度', '请输入外呼间隔秒数（10-60秒）\n直接点确定使用默认20秒', '20');
-    createNotification(`速度选择结果: ${speedInput}`, false);
+    const speedInput = await asyncPrompt('批量外呼 - 第3步', '请输入外呼间隔秒数（10-60秒）\n直接点确定使用默认20秒', '20');
     if (speedInput !== null && speedInput.trim() !== '') {
         const parsed = parseInt(speedInput.trim());
         if (!isNaN(parsed) && parsed >= 10 && parsed <= 60) {
@@ -4336,13 +4336,11 @@ function createHelperUI() {
             btn.style.filter = 'brightness(1.2)';
             btn.style.transform = 'translateY(-2px)';
             btn.style.boxShadow = '0 6px 20px rgba(0, 0, 0, 0.35), 0 0 20px rgba(255, 255, 255, 0.1)';
-            btnGlow.style.left = '100%';
         });
         btn.addEventListener('mouseout', () => {
             btn.style.filter = 'none';
             btn.style.transform = 'translateY(0)';
             btn.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.15)';
-            btnGlow.style.left = '-100%';
         });
         btn.addEventListener('mousedown', () => {
             btn.style.transform = 'translateY(1px)';
