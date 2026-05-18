@@ -986,6 +986,14 @@ async function batchDoCall() {
     // 使用公共进度条组件
     const { loadingElement, counterElement, progressBar } = createProgressBar(`正在外呼 (${applyNos.length}个号码)`, applyNos.length);
 
+    // 添加当前外呼号码显示元素
+    const currentPhoneElement = document.createElement('div');
+    currentPhoneElement.id = 'current-call-phone';
+    currentPhoneElement.textContent = '外呼当前号码: 等待中...';
+    currentPhoneElement.style.cssText = 'margin-top: 10px; text-align: center; font-size: 13px; color: #ffab40; font-weight: 600; text-shadow: 0 0 8px rgba(255, 171, 64, 0.5);';
+    // 插入到counterElement之后
+    counterElement.parentNode.insertBefore(currentPhoneElement, counterElement.nextSibling);
+
     // 创建标题栏（含最小化和停止按钮）
     const header = loadingElement.querySelector('div');
     const headerStyle = header.style.cssText || '';
@@ -1041,7 +1049,7 @@ async function batchDoCall() {
             const phone = phones[index].trim();
 
             // 更新状态显示正在拨打
-            counterElement.textContent = `已拨打 ${completed}/${applyNos.length}，当前正在拨打 ${phone}...`;
+            currentPhoneElement.textContent = `外呼当前号码: ${phone}`;
 
             try {
                 const resp = await fetch('https://ares.yxqiche.com/ares-web/recall/doCall', {
@@ -1090,6 +1098,7 @@ async function batchDoCall() {
 
         // 确保进度条100%
         counterElement.textContent = `已完成: ${applyNos.length}/${applyNos.length}`;
+        currentPhoneElement.textContent = '外呼当前号码: 已完成';
         progressBar.style.width = '100%';
 
         const successCount = results.filter(r => r.外呼状态 === '外呼成功').length;
@@ -1097,6 +1106,7 @@ async function batchDoCall() {
         createNotification(`外呼完成! 成功: ${successCount}, 失败: ${failCount}`);
     } finally {
         // 任务完成后隐藏悬浮窗进度
+        loadingElement.remove();
         const taskContainer = document.getElementById('background-task');
         if (taskContainer) {
             taskContainer.style.display = 'none';
