@@ -1066,7 +1066,9 @@ async function batchDoCall() {
 
     // 外呼速度选择 - 使用自定义弹窗避免浏览器拦截
     let callInterval = 20;
+    createNotification('正在打开速度选择弹窗...', false);
     const speedInput = await asyncPrompt('外呼速度', '请输入外呼间隔秒数（10-60秒）\n直接点确定使用默认20秒', '20');
+    createNotification(`速度选择结果: ${speedInput}`, false);
     if (speedInput !== null && speedInput.trim() !== '') {
         const parsed = parseInt(speedInput.trim());
         if (!isNaN(parsed) && parsed >= 10 && parsed <= 60) {
