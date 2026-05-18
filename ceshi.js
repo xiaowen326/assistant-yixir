@@ -949,58 +949,87 @@ function showPrompt(title, message) {
     return prompt(`${title}\n\n${message}`);
 }
 
-// 自定义异步弹窗（不被浏览器拦截）
+// 自定义异步弹窗（不被浏览器拦截，参考showTemplatePrompt样式）
 function asyncPrompt(title, message, defaultVal) {
     return new Promise((resolve) => {
-        const overlay = document.createElement('div');
-        overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:99999;display:flex;justify-content:center;align-items:center;';
+        const promptContainer = document.createElement('div');
+        promptContainer.style.position = 'fixed';
+        promptContainer.style.top = '50%';
+        promptContainer.style.left = '50%';
+        promptContainer.style.transform = 'translate(-50%, -50%)';
+        promptContainer.style.width = '400px';
+        promptContainer.style.backgroundColor = '#fff';
+        promptContainer.style.border = '1px solid #ccc';
+        promptContainer.style.borderRadius = '8px';
+        promptContainer.style.padding = '20px';
+        promptContainer.style.boxShadow = '0 2px 10px rgba(0,0,0,0.3)';
+        promptContainer.style.zIndex = 99999;
 
-        const dialog = document.createElement('div');
-        dialog.style.cssText = 'background:#1a1a2e;border:1px solid rgba(0,255,136,0.3);border-radius:12px;padding:24px;min-width:360px;max-width:480px;box-shadow:0 20px 60px rgba(0,0,0,0.5);';
-
-        const titleEl = document.createElement('div');
+        const titleEl = document.createElement('h4');
         titleEl.textContent = title;
-        titleEl.style.cssText = 'color:#00ff88;font-weight:bold;font-size:16px;margin-bottom:16px;text-shadow:0 0 10px rgba(0,255,136,0.3);';
+        titleEl.style.margin = '0 0 15px 0';
+        titleEl.style.fontSize = '16px';
+        promptContainer.appendChild(titleEl);
 
         const msgEl = document.createElement('div');
         msgEl.textContent = message;
-        msgEl.style.cssText = 'color:#e0e0e0;font-size:14px;margin-bottom:16px;line-height:1.6;white-space:pre-wrap;';
+        msgEl.style.whiteSpace = 'pre-wrap';
+        msgEl.style.margin = '0 0 15px 0';
+        msgEl.style.fontSize = '14px';
+        promptContainer.appendChild(msgEl);
 
-        const input = document.createElement('input');
-        input.type = 'text';
-        input.value = defaultVal || '';
-        input.style.cssText = 'width:100%;padding:10px 12px;background:rgba(255,255,255,0.1);border:1px solid rgba(0,255,136,0.3);border-radius:8px;color:#e0e0e0;font-size:14px;outline:none;box-sizing:border-box;margin-bottom:16px;';
-        input.addEventListener('focus', () => { input.style.borderColor = 'rgba(0,255,136,0.6)'; });
-        input.addEventListener('blur', () => { input.style.borderColor = 'rgba(0,255,136,0.3)'; });
+        const inputEl = document.createElement('input');
+        inputEl.type = 'text';
+        inputEl.value = defaultVal || '';
+        inputEl.style.width = '100%';
+        inputEl.style.padding = '8px';
+        inputEl.style.boxSizing = 'border-box';
+        inputEl.style.margin = '0 0 15px 0';
+        inputEl.style.border = '1px solid #ccc';
+        inputEl.style.borderRadius = '4px';
+        promptContainer.appendChild(inputEl);
 
         const btnContainer = document.createElement('div');
-        btnContainer.style.cssText = 'display:flex;justify-content:flex-end;gap:10px;';
+        btnContainer.style.display = 'flex';
+        btnContainer.style.gap = '10px';
+        btnContainer.style.justifyContent = 'center';
+        promptContainer.appendChild(btnContainer);
+
+        const confirmBtn = document.createElement('button');
+        confirmBtn.textContent = '确定';
+        confirmBtn.style.padding = '8px 20px';
+        confirmBtn.style.border = 'none';
+        confirmBtn.style.borderRadius = '4px';
+        confirmBtn.style.backgroundColor = '#67C23A';
+        confirmBtn.style.color = '#fff';
+        confirmBtn.style.cursor = 'pointer';
+        btnContainer.appendChild(confirmBtn);
 
         const cancelBtn = document.createElement('button');
         cancelBtn.textContent = '取消';
-        cancelBtn.style.cssText = 'padding:8px 20px;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);border-radius:6px;color:#e0e0e0;cursor:pointer;font-size:14px;';
-        cancelBtn.onmouseover = () => { cancelBtn.style.background = 'rgba(255,255,255,0.2)'; };
-        cancelBtn.onmouseout = () => { cancelBtn.style.background = 'rgba(255,255,255,0.1)'; };
-        cancelBtn.onclick = () => { overlay.remove(); resolve(null); };
-
-        const okBtn = document.createElement('button');
-        okBtn.textContent = '确定';
-        okBtn.style.cssText = 'padding:8px 20px;background:linear-gradient(135deg,#00ff88,#00cc6a);border:none;border-radius:6px;color:#1a1a2e;cursor:pointer;font-size:14px;font-weight:bold;';
-        okBtn.onmouseover = () => { okBtn.style.background = 'linear-gradient(135deg,#00cc6a,#009950)'; };
-        okBtn.onmouseout = () => { okBtn.style.background = 'linear-gradient(135deg,#00ff88,#00cc6a)'; };
-        okBtn.onclick = () => { overlay.remove(); resolve(input.value); };
-
-        input.addEventListener('keydown', (e) => { if (e.key === 'Enter') { overlay.remove(); resolve(input.value); } if (e.key === 'Escape') { overlay.remove(); resolve(null); } });
-
+        cancelBtn.style.padding = '8px 20px';
+        cancelBtn.style.border = 'none';
+        cancelBtn.style.borderRadius = '4px';
+        cancelBtn.style.backgroundColor = '#F56C6C';
+        cancelBtn.style.color = '#fff';
+        cancelBtn.style.cursor = 'pointer';
         btnContainer.appendChild(cancelBtn);
-        btnContainer.appendChild(okBtn);
-        dialog.appendChild(titleEl);
-        dialog.appendChild(msgEl);
-        dialog.appendChild(input);
-        dialog.appendChild(btnContainer);
-        overlay.appendChild(dialog);
-        document.body.appendChild(overlay);
-        setTimeout(() => input.focus(), 50);
+
+        document.body.appendChild(promptContainer);
+        inputEl.focus();
+
+        confirmBtn.addEventListener('click', () => {
+            resolve(inputEl.value);
+            document.body.removeChild(promptContainer);
+        });
+        cancelBtn.addEventListener('click', () => {
+            resolve(null);
+            document.body.removeChild(promptContainer);
+        });
+        inputEl.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') confirmBtn.click();
+            if (e.key === 'Escape') cancelBtn.click();
+        });
     });
 }
 
