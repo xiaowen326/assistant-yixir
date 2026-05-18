@@ -970,7 +970,9 @@ async function batchDoCall() {
         return;
     }
 
-    const phonesInput = showPrompt('批量外呼', `请按顺序输入 ${applyNos.length} 个手机号（用相同分隔符）:`);
+    const phonesInput = showPrompt('批量外呼', `请按顺序输入 ${applyNos.length} 个手机号（用相同分隔符）
+
+外呼间隔秒数(10-60，默认20):`);
     if (!phonesInput) return;
 
     const phones = phonesInput.split(/[\n,，\s]+/).filter(p => p.trim());
@@ -980,17 +982,8 @@ async function batchDoCall() {
         return;
     }
 
-    // 外呼速度选择（10-60秒）
-    const speedInput = showPrompt('外呼速度', '请输入外呼间隔秒数（10-60秒，默认20秒）:');
+    // 外呼速度选择（与手机号一起输入）
     let callInterval = 20;
-    if (speedInput) {
-        const parsed = parseInt(speedInput.trim());
-        if (!isNaN(parsed) && parsed >= 10 && parsed <= 60) {
-            callInterval = parsed;
-        } else {
-            createNotification('外呼间隔无效，使用默认20秒', false);
-        }
-    }
 
     // 重置取消标志
     window._batchCallAborted = false;
