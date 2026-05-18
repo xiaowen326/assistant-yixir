@@ -951,6 +951,160 @@ function showPrompt(title, message) {
 
 
 
+// == 批量外呼 ==
+// 全局取消标志
+window._batchCallAborted = false;
+
+async function batchDoCall() {
+    if (!validateToken()) {
+        createNotification('请先设置有效的Token', false);
+        return;
+    }
+
+    const applyNosInput = showPrompt('批量外呼', '请输入申请编号列表（多个用逗号或换行分隔）:');
+    if (!applyNosInput) return;
+
+    const applyNos = applyNosInput.split(/[\n,，\s]+/).filter(no => no.trim());
+    if (applyNos.length === 0) {
+        createNotification('未输入有效的申请编号!', false);
+        return;
+    }
+
+    const phonesInput = showPrompt('批量外呼', `请按顺序输入 ${applyNos.length} 个手机号（用相同分隔符）:`);
+    if (!phonesInput) return;
+
+    const phones = phonesInput.split(/[\n,，\s]+/).filter(p => p.trim());
+
+    if (applyNos.length !== phones.length) {
+        createNotification(`申请编号数量 (${applyNos.length}) 与手机号数量 (${phones.length}) 不匹配!`, false);
+        return;
+    }
+
+    // 重置取消标志
+    window._batchCallAborted = false;
+
+    // 使用公共进度条组件
+    const { loadingElement, counterElement, progressBar } = createProgressBar(`正在外呼 (${applyNos.length}个号码)`, applyNos.length);
+
+    // 创建标题栏（含最小化和停止按钮）
+    const header = loadingElement.querySelector('div');
+    const headerStyle = header.style.cssText || '';
+    header.style.cssText = headerStyle + 'display: flex; justify-content: space-between; align-items: center;';
+
+    // 添加停止按钮
+    const stopBtn = document.createElement('button');
+    stopBtn.textContent = '停止';
+    stopBtn.style.cssText = 'padding: 4px 12px; background: #f44336; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 12px;';
+    stopBtn.onclick = () => {
+        window._batchCallAborted = true;
+        createNotification('已停止外呼任务', false);
+    };
+    header.appendChild(stopBtn);
+
+    // 创建最小化按钮
+    const minimizeBtn = header.querySelector('button');
+    if (minimizeBtn && minimizeBtn !== stopBtn) {
+        minimizeBtn.onclick = () => {
+            loadingElement.style.display = 'none';
+            const taskContainer = document.getElementById('background-task');
+            if (taskContainer) {
+                document.getElementById('task-title').textContent = '任务: 批量外呼';
+                document.getElementById('task-progress-text').textContent = `已完成: ${completed}/${applyNos.length}`;
+                document.getElementById('task-progress-bar').style.width = `${(completed / applyNos.length) * 100}%`;
+                taskContainer.style.display = 'block';
+            }
+        };
+    }
+
+    document.body.appendChild(loadingElement);
+
+    const results = new Array(applyNos.length);
+    let completed = 0;
+
+    try {
+        // 逐个外呼
+        for (let index = 0; index < applyNos.length; index++) {
+            // 检查是否被取消
+            if (window._batchCallAborted) {
+                results[index] = {
+                    申请编号: applyNos[index].trim(),
+                    手机号: phones[index].trim(),
+                    外呼状态: '已取消',
+                    结果: '用户主动停止'
+                };
+                completed++;
+                updateProgress(counterElement, progressBar, completed, applyNos.length);
+                break;
+            }
+
+            const applyNo = applyNos[index].trim();
+            const phone = phones[index].trim();
+
+            // 更新状态显示正在拨打
+            counterElement.textContent = `已拨打 ${completed}/${applyNos.length}，当前正在拨打 ${phone}...`;
+
+            try {
+                const resp = await fetch('https://ares.yxqiche.com/ares-web/recall/doCall', {
+                    method: 'POST',
+                    headers: {
+                        'accept': 'application/json, text/plain, */*',
+                        'content-type': 'application/json;charset=UTF-8'
+                    },
+                    body: JSON.stringify({ applyNo: applyNo, calledMobile: phone }),
+                    credentials: 'include'
+                });
+                const data = await resp.json();
+
+                if (data.success) {
+                    results[index] = {
+                        申请编号: applyNo,
+                        手机号: phone,
+                        外呼状态: '外呼成功',
+                        结果: data.message || '成功'
+                    };
+                } else {
+                    results[index] = {
+                        申请编号: applyNo,
+                        手机号: phone,
+                        外呼状态: '外呼失败',
+                        结果: data.message || '未知原因'
+                    };
+                }
+            } catch (error) {
+                results[index] = {
+                    申请编号: applyNo,
+                    手机号: phone,
+                    外呼状态: '请求异常',
+                    结果: error.message
+                };
+            } finally {
+                completed++;
+                updateProgress(counterElement, progressBar, completed, applyNos.length);
+            }
+
+            // 间隔20秒
+            if (index < applyNos.length - 1 && !window._batchCallAborted) {
+                await new Promise(r => setTimeout(r, 20000));
+            }
+        }
+
+        // 确保进度条100%
+        counterElement.textContent = `已完成: ${applyNos.length}/${applyNos.length}`;
+        progressBar.style.width = '100%';
+
+        const successCount = results.filter(r => r.外呼状态 === '外呼成功').length;
+        const failCount = results.filter(r => r.外呼状态 !== '外呼成功').length;
+        createNotification(`外呼完成! 成功: ${successCount}, 失败: ${failCount}`);
+    } finally {
+        // 任务完成后隐藏悬浮窗进度
+        const taskContainer = document.getElementById('background-task');
+        if (taskContainer) {
+            taskContainer.style.display = 'none';
+        }
+    }
+}
+
+
 // == 批量实时扣款 ==
 async function batchRealTimeCharge() {
     if (!validateToken()) {
@@ -4046,6 +4200,7 @@ function createHelperUI() {
     { text: '合并查询车辆信息', action: batchQueryCarAndBaseInfo, color: '#E64A19' }, // 橙红色 - 代表综合和整合
     { text: '查询短信数据', action: batchQuerySMSData, color: '#455A64' }, // 深灰色 - 代表数据和信息
     { text: '批量实时扣款', action: batchRealTimeCharge, color: '#E91E63' }, // 红色 - 代表扣款操作
+    { text: '批量外呼', action: batchDoCall, color: '#00695C' },
     { text: '显示/隐藏水印' , action: toggleWatermark, color: '#5D4037',}, // 水印控制
     // { text: '设置Token', action: setToken, color: '#607D8B' }
   ];
