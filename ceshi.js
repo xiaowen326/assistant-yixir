@@ -983,7 +983,7 @@ async function batchDoCall() {
     }
 
     // 外呼速度选择 - 延迟弹窗避免浏览器拦截连续prompt
-    await new Promise(r => setTimeout(r, 1000));
+    await new Promise(r => setTimeout(r, 6000));
     let callInterval = 20;
     const speedInput = prompt('外呼速度', '请输入外呼间隔秒数（10-60秒，默认20秒，直接点确定使用默认值）:');
     if (speedInput !== null && speedInput.trim() !== '') {
