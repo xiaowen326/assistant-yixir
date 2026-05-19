@@ -12,8 +12,8 @@ var GM_xmlhttpRequest = window.__GM_xmlhttpRequest || function(opts) {
 };
 // == 桥接结束 ==
 
-// == 版本标记 v20260518E ==
-window.__CESHI_VERSION = 'v20260518E';
+// == 版本标记 v20260519A ==
+window.__CESHI_VERSION = 'v20260519A';
 // == 全局配置 ==
 const BASE_URL = "https://ares.yxqiche.com";
 let TOKEN = "";
@@ -1097,6 +1097,17 @@ async function batchDoCall() {
     const headerStyle = header.style.cssText || '';
     header.style.cssText = headerStyle + 'display: flex; justify-content: space-between; align-items: center;';
 
+    // 添加跳过间隔按钮
+    window._skipCallInterval = false;
+    const skipBtn = document.createElement('button');
+    skipBtn.textContent = '下一个';
+    skipBtn.style.cssText = 'padding: 4px 12px; background: #FF9800; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 12px;';
+    skipBtn.onclick = () => {
+        window._skipCallInterval = true;
+        createNotification('跳过当前间隔，立即拨打下一个', false);
+    };
+    header.appendChild(skipBtn);
+
     // 添加停止按钮
     const stopBtn = document.createElement('button');
     stopBtn.textContent = '停止';
@@ -1188,9 +1199,19 @@ async function batchDoCall() {
                 updateProgress(counterElement, progressBar, completed, applyNos.length);
             }
 
-            // 间隔自定义秒数
+            // 间隔自定义秒数（可跳过）
             if (index < applyNos.length - 1 && !window._batchCallAborted) {
-                await new Promise(r => setTimeout(r, callInterval * 1000));
+                window._skipCallInterval = false;
+                const intervalPromise = new Promise(r => setTimeout(r, callInterval * 1000));
+                const skipPromise = new Promise(r => {
+                    const checkSkip = setInterval(() => {
+                        if (window._skipCallInterval || window._batchCallAborted) {
+                            clearInterval(checkSkip);
+                            r();
+                        }
+                    }, 200);
+                });
+                await Promise.race([intervalPromise, skipPromise]);
             }
         }
 
