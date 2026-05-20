@@ -1045,24 +1045,19 @@ async function batchDoCall() {
         return;
     }
 
-    // 第1步：输入申请编号+姓名（自定义弹窗）
-    const applyNosInput = await asyncPrompt('批量外呼 - 第1步', '请输入申请编号和姓名（每行一组，逗号分隔）:\n格式：申请编号,姓名\n例如：\n3299717605,张三\n3299717606,李四\n也可以只输入申请编号（逗号后留空则姓名显示为空）');
+    // 第1步：输入申请编号（自定义弹窗）
+    const applyNosInput = await asyncPrompt('批量外呼 - 第1步', '请输入申请编号列表（多个用逗号或换行分隔）:');
     if (!applyNosInput) return;
 
-    const applyLines = applyNosInput.split(/[\n]+/).filter(line => line.trim());
-    const applyNos = [];
-    const names = [];
-    for (const line of applyLines) {
-        const parts = line.split(/[,，]/).map(s => s.trim());
-        if (parts[0]) {
-            applyNos.push(parts[0]);
-            names.push(parts[1] || '');
-        }
-    }
+    const applyNos = applyNosInput.split(/[\n,，\s]+/).filter(no => no.trim());
     if (applyNos.length === 0) {
         createNotification('未输入有效的申请编号!', false);
         return;
     }
+
+    // 第1.5步：输入姓名（可选）
+    const namesInput = await asyncPrompt('批量外呼 - 第1.5步（可选）', `请按顺序输入 ${applyNos.length} 个客户姓名（用相同分隔符）\n不输入姓名直接点取消即可跳过`);
+    const names = namesInput ? namesInput.split(/[\n,，\s]+/).filter(n => n.trim()) : [];
 
     // 第2步：输入手机号（自定义弹窗）
     const phonesInput = await asyncPrompt('批量外呼 - 第2步', `请按顺序输入 ${applyNos.length} 个手机号（用相同分隔符）:`);
