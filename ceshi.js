@@ -12,8 +12,8 @@ var GM_xmlhttpRequest = window.__GM_xmlhttpRequest || function(opts) {
 };
 // == 桥接结束 ==
 
-// == 版本标记 v20260519A ==
-window.__CESHI_VERSION = 'v20260519A';
+// == 版本标记 v20260520A ==
+window.__CESHI_VERSION = 'v20260520A';
 // == 全局配置 ==
 const BASE_URL = "https://ares.yxqiche.com";
 let TOKEN = "";
@@ -1045,11 +1045,20 @@ async function batchDoCall() {
         return;
     }
 
-    // 第1步：输入申请编号（自定义弹窗）
-    const applyNosInput = await asyncPrompt('批量外呼 - 第1步', '请输入申请编号列表（多个用逗号或换行分隔）:');
+    // 第1步：输入申请编号+姓名（自定义弹窗）
+    const applyNosInput = await asyncPrompt('批量外呼 - 第1步', '请输入申请编号和姓名（每行一组，逗号分隔）:\n格式：申请编号,姓名\n例如：\n3299717605,张三\n3299717606,李四\n也可以只输入申请编号（逗号后留空则姓名显示为空）');
     if (!applyNosInput) return;
 
-    const applyNos = applyNosInput.split(/[\n,，\s]+/).filter(no => no.trim());
+    const applyLines = applyNosInput.split(/[\n]+/).filter(line => line.trim());
+    const applyNos = [];
+    const names = [];
+    for (const line of applyLines) {
+        const parts = line.split(/[,，]/).map(s => s.trim());
+        if (parts[0]) {
+            applyNos.push(parts[0]);
+            names.push(parts[1] || '');
+        }
+    }
     if (applyNos.length === 0) {
         createNotification('未输入有效的申请编号!', false);
         return;
@@ -1145,6 +1154,7 @@ async function batchDoCall() {
             if (window._batchCallAborted) {
                 results[index] = {
                     申请编号: applyNos[index].trim(),
+                    姓名: names[index] || '',
                     手机号: phones[index].trim(),
                     外呼状态: '已取消',
                     结果: '用户主动停止'
@@ -1157,8 +1167,9 @@ async function batchDoCall() {
             const applyNo = applyNos[index].trim();
             const phone = phones[index].trim();
 
-            // 更新状态显示正在拨打
-            currentPhoneElement.textContent = `外呼当前号码: ${phone}`;
+            // 更新状态显示正在拨打（带姓名）
+            const displayName = names[index] ? `${names[index]} ${phone}` : phone;
+            currentPhoneElement.textContent = `外呼当前号码: ${displayName}`;
 
             try {
                 const resp = await fetch('https://ares.yxqiche.com/ares-web/recall/doCall', {
@@ -1175,6 +1186,7 @@ async function batchDoCall() {
                 if (data.success) {
                     results[index] = {
                         申请编号: applyNo,
+                        姓名: names[index] || '',
                         手机号: phone,
                         外呼状态: '外呼成功',
                         结果: data.message || '成功'
@@ -1182,6 +1194,7 @@ async function batchDoCall() {
                 } else {
                     results[index] = {
                         申请编号: applyNo,
+                        姓名: names[index] || '',
                         手机号: phone,
                         外呼状态: '外呼失败',
                         结果: data.message || '未知原因'
