@@ -1071,14 +1071,14 @@ async function batchDoCall() {
     }
 
     // 第3步：选择外呼速度（自定义弹窗）
-    let callInterval = 20;
-    const speedInput = await asyncPrompt('批量外呼 - 第3步', '请输入外呼间隔秒数（10-60秒）\n直接点确定使用默认20秒', '20');
+    let callInterval = 50;
+    const speedInput = await asyncPrompt('批量外呼 - 第3步', '请输入外呼间隔秒数（10-80秒）\n直接点确定使用默认50秒', '50');
     if (speedInput !== null && speedInput.trim() !== '') {
         const parsed = parseInt(speedInput.trim());
-        if (!isNaN(parsed) && parsed >= 10 && parsed <= 60) {
+        if (!isNaN(parsed) && parsed >= 10 && parsed <= 80) {
             callInterval = parsed;
         } else {
-            createNotification('外呼间隔无效，使用默认20秒', false);
+            createNotification('外呼间隔无效，使用默认50秒', false);
         }
     }
 
