@@ -2184,7 +2184,7 @@ async function batchQueryData() {
                 const base = info?.base || {};
                 const home = info?.home || {};
                 
-                const phoneNumber = base.phoneNumber || '无';
+                const plaintextPhone = base.plaintextPhone || '无';
                 const certificateNumber = base.certificateNumber || '无';
                 
                 // 地址为null时显示"无地址"
@@ -2197,7 +2197,7 @@ async function batchQueryData() {
                         itemResults.push({
                             申请号: applyNo,
                             姓名: name || '无',
-                            电话: phoneNumber || '无',
+                            电话: plaintextPhone || '无',
                             还款金额: repayAmount || '无',
                             证件号: certificateNumber,
                             资方: contributePartyName || '无',
@@ -2213,7 +2213,7 @@ async function batchQueryData() {
                     itemResults.push({
                         申请号: applyNo,
                         姓名: name || '无',
-                        电话: phoneNumber || '无',
+                        电话: plaintextPhone || '无',
                         还款金额: repayAmount || '无',
                         证件号: certificateNumber,
                         资方: contributePartyName || '无',
@@ -4617,8 +4617,8 @@ function createHelperUI() {
     { text: '查询客户画像', action: AiBaseInfo, color: '#0288D1' }, // 亮蓝色 - 代表智能和分析
     { text: '查询历史客诉', action: batchhistoryComplaint, color: '#C62828' }, // 深红色 - 代表警示和重要
     { text: '合并查询车辆信息', action: batchQueryCarAndBaseInfo, color: '#E64A19' }, // 橙红色 - 代表综合和整合
-    { text: '查询短信数据', action: batchQuerySMSData, color: '#455A64' }, // 深灰色 - 代表数据和信息
-    { text: '查询原始脱敏数据', action: batchQueryData, color: '#455A32' }, // 深灰色 - 代表数据和信息
+    //{ text: '查询短信数据', action: batchQuerySMSData, color: '#455A64' }, // 深灰色 - 代表数据和信息
+    { text: '查询短信数据', action: batchQueryData, color: '#455A64' }, // 深灰色 - 代表数据和信息
     { text: '批量实时扣款', action: batchRealTimeCharge, color: '#E91E63' }, // 红色 - 代表扣款操作
     { text: '批量外呼', action: batchDoCall, color: '#00695C' },
     { text: '批量导入通讯录', action: synPhoneToWorkPhone, color: '#1565C0' }, // 蓝色 - 批量导入联系人到工作机
@@ -4740,6 +4740,101 @@ function createHelperUI() {
 
        // 初始检查Token
     updateTokenStatus();
+
+  // === 加载时公告弹窗 ===
+  showAnnouncement();
+}
+
+// == 公告弹窗（内容可自行编辑） ==
+function showAnnouncement() {
+    // ★★★ 在这里编辑公告内容 ★★★
+    const ANNOUNCEMENT_TITLE = '📢 系统助手公告';
+    const ANNOUNCEMENT_CONTENT = `
+<div style="line-height: 1.8;">
+  <p>1、发短信做催记批量外呼等等其他的，需要用到手机号的地方，都去用加密后的手机号，也就是用代码拉出来的第三列号码的格式，千万不要用完整的号码，甲方都能看得到！！</p>
+  <p>2、批量导入通讯录功能，imei号码是每个账号绑定的工作机的，一般用默认的即可，不用去单独输入！！</p>
+</div>
+`;
+    // ★★★ 编辑区域结束 ★★★
+
+    const overlay = document.createElement('div');
+    overlay.style.cssText = `
+        position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+        background: rgba(0,0,0,0.5); z-index: 100000;
+        display: flex; justify-content: center; align-items: center;
+        animation: fadeIn 0.3s ease;
+    `;
+
+    const dialog = document.createElement('div');
+    dialog.style.cssText = `
+        background: linear-gradient(145deg, #1a1a2e 0%, #16213e 100%);
+        border: 1px solid rgba(0, 255, 136, 0.4);
+        border-radius: 16px; padding: 24px;
+        box-shadow: 0 0 40px rgba(0, 255, 136, 0.15), 0 20px 60px rgba(0, 0, 0, 0.5);
+        width: 420px; max-width: 90vw; max-height: 80vh;
+        overflow-y: auto; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        color: #e0e0e0;
+    `;
+
+    const titleEl = document.createElement('div');
+    titleEl.style.cssText = `
+        font-size: 18px; font-weight: bold; margin-bottom: 16px;
+        color: #00ff88; text-align: center;
+        text-shadow: 0 0 10px rgba(0, 255, 136, 0.5);
+    `;
+    titleEl.textContent = ANNOUNCEMENT_TITLE;
+
+    const contentEl = document.createElement('div');
+    contentEl.style.cssText = 'font-size: 14px; color: #ccc; margin-bottom: 20px;';
+    contentEl.innerHTML = ANNOUNCEMENT_CONTENT;
+
+    const btnContainer = document.createElement('div');
+    btnContainer.style.cssText = 'text-align: center;';
+
+    const closeBtn = document.createElement('button');
+    closeBtn.textContent = '我知道了';
+    closeBtn.style.cssText = `
+        padding: 10px 40px; border: none; border-radius: 8px;
+        background: linear-gradient(135deg, #00c853, #00ff88);
+        color: #1a1a2e; font-size: 15px; font-weight: bold;
+        cursor: pointer; transition: all 0.3s;
+        box-shadow: 0 0 15px rgba(0, 255, 136, 0.3);
+    `;
+    closeBtn.addEventListener('mouseenter', function() {
+        this.style.boxShadow = '0 0 25px rgba(0, 255, 136, 0.6)';
+        this.style.transform = 'scale(1.05)';
+    });
+    closeBtn.addEventListener('mouseleave', function() {
+        this.style.boxShadow = '0 0 15px rgba(0, 255, 136, 0.3)';
+        this.style.transform = 'scale(1)';
+    });
+    closeBtn.addEventListener('click', function() {
+        overlay.style.animation = 'fadeOut 0.2s ease forwards';
+        setTimeout(() => overlay.remove(), 200);
+    });
+
+    btnContainer.appendChild(closeBtn);
+    dialog.appendChild(titleEl);
+    dialog.appendChild(contentEl);
+    dialog.appendChild(btnContainer);
+    overlay.appendChild(dialog);
+    document.body.appendChild(overlay);
+
+    // 淡入淡出动画
+    const fadeStyle = document.createElement('style');
+    fadeStyle.textContent = `
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes fadeOut { from { opacity: 1; } to { opacity: 0; } }
+    `;
+    if (!document.getElementById('announcement-fade-style')) {
+        fadeStyle.id = 'announcement-fade-style';
+        document.head.appendChild(fadeStyle);
+    }
+
+    // ESC键关闭
+    overlay.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') closeBtn.click();
+    });
 }
 function updateTokenStatus() {
     const statusIndicator = document.getElementById('token-status-indicator');
