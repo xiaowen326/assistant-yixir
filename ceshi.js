@@ -952,7 +952,7 @@ function showPrompt(title, message) {
 }
 
 // 自定义异步弹窗（不被浏览器拦截，参考showTemplatePrompt样式）
-function asyncPrompt(title, message, defaultVal) {
+function asyncPrompt(title, message, defaultVal, placeholder) {
     return new Promise((resolve) => {
         const promptContainer = document.createElement('div');
         promptContainer.style.position = 'fixed';
@@ -983,6 +983,7 @@ function asyncPrompt(title, message, defaultVal) {
         const inputEl = document.createElement('input');
         inputEl.type = 'text';
         inputEl.value = defaultVal || '';
+        if (placeholder) inputEl.placeholder = placeholder;
         inputEl.style.width = '100%';
         inputEl.style.padding = '8px';
         inputEl.style.boxSizing = 'border-box';
@@ -1038,6 +1039,135 @@ function asyncPrompt(title, message, defaultVal) {
 // == 批量外呼 ==
 // 全局取消标志
 window._batchCallAborted = false;
+
+// == 批量导入通讯录到工作机 ==
+async function synPhoneToWorkPhone() {
+    if (!validateToken()) {
+        createNotification('请先设置Token', false);
+        return;
+    }
+
+    // 第一步：自动获取绑定IMEI + 输入IMEI号
+    let boundImei = '';
+    let placeholderText = '';
+    try {
+        const imeiResp = await fetch(BASE_URL + '/ares-web/recall/getByAccount', {
+            method: 'POST',
+            headers: {
+                'accept': 'application/json, text/plain, */*',
+                'content-type': 'application/json;charset=UTF-8',
+            },
+            body: JSON.stringify({}),
+            credentials: 'include'
+        });
+        const imeiData = await imeiResp.json();
+        if (imeiData.success && imeiData.data && imeiData.data.length > 0) {
+            boundImei = imeiData.data[0];
+            placeholderText = '当前绑定IMEI: ' + boundImei + '（直接确定使用绑定IMEI）';
+        }
+    } catch (e) {
+        // 获取失败不影响使用，不显示placeholder
+    }
+
+    const imeiInput = await asyncPrompt('批量导入通讯录 - 第1步', '请输入工作机IMEI号（只能输入一个）：', '', placeholderText);
+    // 用户没手动输入则使用绑定的IMEI
+    let imei = (imeiInput && imeiInput.trim()) ? imeiInput.trim() : boundImei;
+    if (!imei) {
+        createNotification('未输入IMEI号，已取消', false);
+        return;
+    }
+    // IMEI通常是15位数字
+    if (!/^\d{15}$/.test(imei)) {
+        createNotification('IMEI号格式不正确，应为15位数字', false);
+        return;
+    }
+
+    // 第二步：输入申请编号（可批量）
+    const applyNosInput = await asyncPrompt('批量导入通讯录 - 第2步', '请输入申请编号（多个编号用逗号、空格或换行分隔）：');
+    if (!applyNosInput || !applyNosInput.trim()) {
+        createNotification('未输入申请编号，已取消', false);
+        return;
+    }
+
+    const applyNos = applyNosInput.split(/[,，\s]+/).filter(no => no.trim());
+    if (applyNos.length === 0) {
+        createNotification('未识别到有效的申请编号', false);
+        return;
+    }
+
+    // 创建进度条
+    const { loadingElement, counterElement, progressBar } = createProgressBar(`批量导入通讯录 (${applyNos.length}个编号)`, applyNos.length);
+
+    // 添加停止按钮
+    const header = loadingElement.querySelector('div');
+    const stopBtn = document.createElement('button');
+    stopBtn.textContent = '停止';
+    stopBtn.style.cssText = 'padding: 4px 12px; background: #f44336; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 12px;';
+    let aborted = false;
+    stopBtn.onclick = () => { aborted = true; };
+    header.appendChild(stopBtn);
+
+    document.body.appendChild(loadingElement);
+
+    let completed = 0;
+    let successCount = 0;
+    let failCount = 0;
+    const results = [];
+
+    try {
+        // 调用API：一个IMEI + 所有申请编号
+        const requestBody = JSON.stringify({
+            imei: imei,
+            applyNos: applyNos.map(no => no.trim())
+        });
+
+        const resp = await fetch(BASE_URL + '/ares-web/recall/synPhoneToWorkPhone', {
+            method: 'POST',
+            headers: {
+                'accept': 'application/json, text/plain, */*',
+                'content-type': 'application/json;charset=UTF-8',
+            },
+            body: requestBody,
+            credentials: 'include'
+        });
+
+        const data = await resp.json();
+
+        if (data.success) {
+            successCount = applyNos.length;
+            completed = applyNos.length;
+            progressBar.style.width = '100%';
+            counterElement.textContent = `✅ 导入完成！成功: ${successCount}`;
+            counterElement.style.color = '#4CAF50';
+            createNotification(`通讯录导入成功！共${applyNos.length}个编号`, true);
+        } else {
+            failCount = applyNos.length;
+            completed = applyNos.length;
+            progressBar.style.width = '100%';
+            counterElement.textContent = `❌ 导入失败: ${data.message || '未知错误'}`;
+            counterElement.style.color = '#f44336';
+            createNotification(`通讯录导入失败: ${data.message || '未知错误'}`, false);
+        }
+
+    } catch (e) {
+        counterElement.textContent = `❌ 请求异常: ${e.message}`;
+        counterElement.style.color = '#f44336';
+        createNotification('通讯录导入请求异常: ' + e.message, false);
+    }
+
+    // 更新进度条标题
+    const titleEl = loadingElement.querySelector('div');
+    if (titleEl) {
+        titleEl.textContent = `批量导入通讯录 - 完成 (成功: ${successCount}, 失败: ${failCount})`;
+    }
+
+    // 导入完成后2秒自动关闭
+    setTimeout(() => {
+        if (loadingElement && loadingElement.parentNode) {
+            loadingElement.parentNode.removeChild(loadingElement);
+        }
+    }, 2000);
+}
 
 async function batchDoCall() {
     if (!validateToken()) {
@@ -4491,6 +4621,7 @@ function createHelperUI() {
     { text: '查询原始脱敏数据', action: batchQueryData, color: '#455A32' }, // 深灰色 - 代表数据和信息
     { text: '批量实时扣款', action: batchRealTimeCharge, color: '#E91E63' }, // 红色 - 代表扣款操作
     { text: '批量外呼', action: batchDoCall, color: '#00695C' },
+    { text: '批量导入通讯录', action: synPhoneToWorkPhone, color: '#1565C0' }, // 蓝色 - 批量导入联系人到工作机
     { text: '显示/隐藏水印' , action: toggleWatermark, color: '#5D4037',}, // 水印控制
     // { text: '设置Token', action: setToken, color: '#607D8B' }
   ];
