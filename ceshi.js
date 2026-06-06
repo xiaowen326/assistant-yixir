@@ -2001,6 +2001,158 @@ async function batchQuerySMSData() {
     }
 }
 
+// ===== 新增的查询脱敏短信数据功能 =====
+async function batchQueryData() {
+    if (!validateToken()) {
+        createNotification('请先设置有效的Token', false);
+        return;
+    }
+
+    const input = showPrompt('查询脱敏短信数据', '请输入要查询的记录条数（例如：10）:');
+    if (!input) return;
+    
+    const pageSize = parseInt(input);
+    if (isNaN(pageSize) || pageSize <= 0) {
+        createNotification('请输入有效的数字!', false);
+        return;
+    }
+    
+    // 创建带进度条的加载提示
+    const { loadingElement, counterElement, progressBar } = createProgressBar(`正在查询短信数据 (${pageSize}条)`, pageSize);
+    document.body.appendChild(loadingElement);
+    
+    let totalTasks = 0;
+    const resultsArray = [];
+    let completed = 0;
+    
+    try {
+        // 获取申请号列表
+        const list = await queryList(pageSize);
+        totalTasks = list.length;
+        
+        if (totalTasks === 0) {
+            createNotification('未查询到任何申请号，请检查登录状态是否正常或刷新网页重试', false);
+            loadingElement.remove();
+            return;
+        }
+        
+        counterElement.textContent = `已完成: 0/${totalTasks}`;
+        progressBar.style.width = `0%`;
+        
+        // 并发处理所有申请号，使用索引保持顺序
+        const processingPromises = list.map(async (item, index) => {
+            try {
+                const { applyNo, name, repayAmount, contributePartyName, overdueDays } = item;
+                
+                // 并行获取基础信息和联系人信息
+                const [info, contacts] = await Promise.all([
+                    getInfo(applyNo),
+                    getContact(applyNo)
+                ]);
+                
+                // 处理地址为null的情况
+                const base = info?.base || {};
+                const home = info?.home || {};
+                
+                const phoneNumber = base.phoneNumber || '无';
+                const certificateNumber = base.certificateNumber || '无';
+                
+                // 地址为null时显示"无地址"
+                const registerAddress = home.registerAddress || '无地址';
+                const livingAddress = home.livingAddress || '无地址';
+                
+                const itemResults = [];
+                if (contacts && contacts.length) {
+                    for (const contact of contacts) {
+                        itemResults.push({
+                            申请号: applyNo,
+                            姓名: name || '无',
+                            电话: phoneNumber || '无',
+                            还款金额: repayAmount || '无',
+                            证件号: certificateNumber,
+                            资方: contributePartyName || '无',
+                            户籍地址: registerAddress, // 已处理null值
+                            居住地址: livingAddress,   // 已处理null值
+                            逾期天数: overdueDays || '无',
+                            关系: contact.relation || '无',
+                            联系人姓名: contact.name || '无',
+                            联系人电话: contact.phone || '无',
+                            归属地: getPhoneLocation(contact.phone)                        });
+                    }
+                } else {
+                    itemResults.push({
+                        申请号: applyNo,
+                        姓名: name || '无',
+                        电话: phoneNumber || '无',
+                        还款金额: repayAmount || '无',
+                        证件号: certificateNumber,
+                        资方: contributePartyName || '无',
+                        户籍地址: registerAddress, // 已处理null值
+                        居住地址: livingAddress,   // 已处理null值
+                        逾期天数: overdueDays || '无',
+                        关系: '无',
+                        联系人姓名: '无联系人',
+                        联系人电话: '无',
+                        归属地: '未知'
+                    });
+                }
+                
+                resultsArray[index] = itemResults;
+            } catch (error) {
+                console.error(`处理申请号 ${item.applyNo} 失败:`, error);
+                resultsArray[index] = [{
+                    申请号: item.applyNo || '未知',
+                    状态: `请求失败: ${error.message}`,
+                    姓名: '无',
+                    电话: '无',
+                    还款金额: '无',
+                    证件号: '无',
+                    资方: '无',
+                    户籍地址: '无地址', // 错误时保持"无地址"
+                    居住地址: '无地址', // 错误时保持"无地址"
+                    逾期天数: '无',
+                    联系人姓名: '无',
+                    联系人电话: '无',
+                    归属地: '未知'
+                }];
+            } finally {
+                // 更新进度
+                completed++;
+                updateProgress(counterElement, progressBar, completed, totalTasks);
+            }
+        });
+        
+        // 等待所有处理完成
+        await Promise.all(processingPromises);
+        
+        // 按顺序展开结果
+        const results = resultsArray.flat();
+        
+        // 确保进度条显示为100%
+        counterElement.textContent = `已完成: ${totalTasks}/${totalTasks}`;
+        progressBar.style.width = `100%`;
+        
+        createNotification(`成功查询 ${results.length} 条短信数据`);
+        displayResults(results, '短信数据查询结果');
+        
+    } catch (error) {
+        console.error('全局处理错误:', error);
+        createNotification('批量查询失败，请检查网络或重新登录账号', false);
+    } finally {
+        // 任务完成后隐藏进度显示
+        const taskContainer = document.getElementById('background-task');
+        if (taskContainer) {
+            taskContainer.style.display = 'none';
+        }
+        
+        // 移除进度窗口
+        if (loadingElement.parentNode) {
+            loadingElement.remove();
+        }
+    }
+}
+
+
 // ===== 短信数据查询相关函数 =====
 async function queryList(pageSize = 10) {
     const url = `${BASE_URL}/ares-web/recall/pageQuery`;
@@ -4336,6 +4488,7 @@ function createHelperUI() {
     { text: '查询历史客诉', action: batchhistoryComplaint, color: '#C62828' }, // 深红色 - 代表警示和重要
     { text: '合并查询车辆信息', action: batchQueryCarAndBaseInfo, color: '#E64A19' }, // 橙红色 - 代表综合和整合
     { text: '查询短信数据', action: batchQuerySMSData, color: '#455A64' }, // 深灰色 - 代表数据和信息
+    { text: '查询原始脱敏数据', action: batchQueryData, color: '#455A32' }, // 深灰色 - 代表数据和信息
     { text: '批量实时扣款', action: batchRealTimeCharge, color: '#E91E63' }, // 红色 - 代表扣款操作
     { text: '批量外呼', action: batchDoCall, color: '#00695C' },
     { text: '显示/隐藏水印' , action: toggleWatermark, color: '#5D4037',}, // 水印控制
