@@ -13,7 +13,7 @@ var GM_xmlhttpRequest = window.__GM_xmlhttpRequest || function(opts) {
 // == 桥接结束 ==
 
 // == 版本标记 v20260520A ==
-window.__CESHI_VERSION = 'v20260612B';
+window.__CESHI_VERSION = 'v20260612C';
 // == 全局配置 ==
 const BASE_URL = "https://ares.yxqiche.com";
 let TOKEN = "";
@@ -862,144 +862,193 @@ function getTokenFromCookies() {
     return null;
 }
 
-// == 号码还原功能（自动替换模式） ==
+// == 号码还原功能（自动替换模式 v2 - 定时轮询+Observer双保险） ==
 // 全局号码映射（上传Excel后持久存储）
 let _phoneRestoreMap = {};  // 脱敏号码 → 明文号码
 let _phoneRestoreById = {}; // 证件号后6位+关系+联系人姓名 → 明文号码
 let _phoneRestoreActive = false;  // 自动替换是否启用
 let _phoneRestoreObserver = null; // MutationObserver实例
+let _phoneRestoreIntervalId = null; // 定时轮询ID
+let _phoneRestoreIsReplacing = false; // 防重入标志
 
-// 动态加载SheetJS库
-let _xlsxLoaded = false;
 function loadXLSX() {
     return new Promise((resolve, reject) => {
-        if (window.XLSX) {
-            _xlsxLoaded = true;
-            resolve(window.XLSX);
-            return;
-        }
+        if (window.XLSX) { resolve(window.XLSX); return; }
         const script = document.createElement('script');
         script.src = 'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js';
         script.onload = () => {
-            _xlsxLoaded = true;
-            resolve(window.XLSX);
+            if (window.XLSX) resolve(window.XLSX);
+            else reject(new Error('SheetJS加载失败'));
         };
-        script.onerror = () => reject(new Error('SheetJS库加载失败'));
+        script.onerror = () => reject(new Error('SheetJS脚本加载失败'));
         document.head.appendChild(script);
     });
 }
 
-// 核心替换逻辑：扫描DOM中所有脱敏号码并替换
+// 核心替换函数：扫描DOM中所有脱敏号码并替换
 function _doPhoneReplace(root) {
     if (Object.keys(_phoneRestoreMap).length === 0) return 0;
+    if (_phoneRestoreIsReplacing) return 0; // 防重入
+    _phoneRestoreIsReplacing = true;
     
-    let count = 0;
-    const maskedRegex = /1\d{2}\*{4}\d{4}/g;
-    
-    // 替换文本节点
-    const walker = document.createTreeWalker(
-        root || document.body,
-        NodeFilter.SHOW_TEXT,
-        null,
-        false
-    );
-    const textNodes = [];
-    let node;
-    while (node = walker.nextNode()) {
-        if (node.parentElement && maskedRegex.test(node.textContent)) {
-            maskedRegex.lastIndex = 0;
+    try {
+        let count = 0;
+        const maskedRegex = /1\d{2}\*{4}\d{4}/g;
+        const searchRoot = root || document.body;
+        
+        // 1. 替换文本节点（TreeWalker遍历）
+        const walker = document.createTreeWalker(
+            searchRoot,
+            NodeFilter.SHOW_TEXT,
+            {
+                acceptNode: function(node) {
+                    const parent = node.parentElement;
+                    if (!parent) return NodeFilter.FILTER_REJECT;
+                    const tag = parent.tagName;
+                    if (tag === 'SCRIPT' || tag === 'STYLE' || tag === 'NOSCRIPT') return NodeFilter.FILTER_REJECT;
+                    if (maskedRegex.test(node.textContent)) {
+                        maskedRegex.lastIndex = 0;
+                        return NodeFilter.FILTER_ACCEPT;
+                    }
+                    return NodeFilter.FILTER_SKIP;
+                }
+            },
+            false
+        );
+        const textNodes = [];
+        let node;
+        while (node = walker.nextNode()) {
             textNodes.push(node);
         }
-    }
-    for (const textNode of textNodes) {
-        const original = textNode.textContent;
-        let modified = original.replace(maskedRegex, (match) => {
-            if (_phoneRestoreMap[match]) {
-                count++;
-                return _phoneRestoreMap[match];
-            }
-            return match;
-        });
-        if (modified !== original) {
-            textNode.textContent = modified;
-        }
-    }
-    
-    // 替换input/textarea
-    const inputs = (root || document.body).querySelectorAll('input[type="text"], input:not([type]), textarea');
-    for (const input of inputs) {
-        if (maskedRegex.test(input.value)) {
-            maskedRegex.lastIndex = 0;
-            const original = input.value;
-            input.value = original.replace(maskedRegex, (match) => {
+        for (const textNode of textNodes) {
+            const original = textNode.textContent;
+            let modified = original.replace(maskedRegex, (match) => {
                 if (_phoneRestoreMap[match]) {
                     count++;
                     return _phoneRestoreMap[match];
                 }
                 return match;
             });
+            if (modified !== original) {
+                textNode.textContent = modified;
+            }
         }
+        
+        // 2. 替换input/textarea中的值
+        const inputs = searchRoot.querySelectorAll('input[type="text"], input:not([type]), textarea');
+        for (const input of inputs) {
+            if (maskedRegex.test(input.value)) {
+                maskedRegex.lastIndex = 0;
+                const original = input.value;
+                input.value = original.replace(maskedRegex, (match) => {
+                    if (_phoneRestoreMap[match]) {
+                        count++;
+                        return _phoneRestoreMap[match];
+                    }
+                    return match;
+                });
+            }
+        }
+        
+        // 3. 替换a[href^="tel:"]中的号码
+        const telLinks = searchRoot.querySelectorAll('a[href^="tel:"]');
+        for (const link of telLinks) {
+            const href = link.getAttribute('href');
+            if (href && maskedRegex.test(href)) {
+                maskedRegex.lastIndex = 0;
+                const newHref = href.replace(maskedRegex, (match) => {
+                    if (_phoneRestoreMap[match]) {
+                        count++;
+                        return _phoneRestoreMap[match];
+                    }
+                    return match;
+                });
+                if (newHref !== href) {
+                    link.setAttribute('href', newHref);
+                }
+            }
+        }
+        
+        // 4. 替换叶子元素中的脱敏号码（兜底，处理Vue等框架渲染）
+        const allElements = searchRoot.querySelectorAll('span, div, td, li, p, a, em, strong, b, i');
+        for (const el of allElements) {
+            if (el.children.length === 0 && el.textContent && maskedRegex.test(el.textContent)) {
+                maskedRegex.lastIndex = 0;
+                const original = el.textContent;
+                const modified = original.replace(maskedRegex, (match) => {
+                    if (_phoneRestoreMap[match]) {
+                        count++;
+                        return _phoneRestoreMap[match];
+                    }
+                    return match;
+                });
+                if (modified !== original) {
+                    el.textContent = modified;
+                }
+            }
+        }
+        
+        return count;
+    } finally {
+        _phoneRestoreIsReplacing = false;
+    }
+}
+
+// 启动自动替换：MutationObserver + 定时轮询双保险
+function startPhoneRestoreObserver() {
+    // MutationObserver：实时捕获DOM变化
+    if (!_phoneRestoreObserver) {
+        _phoneRestoreObserver = new MutationObserver((mutations) => {
+            if (Object.keys(_phoneRestoreMap).length === 0) return;
+            if (_phoneRestoreIsReplacing) return;
+            
+            let needReplace = false;
+            for (const mutation of mutations) {
+                if (mutation.type === 'childList' && mutation.addedNodes.length > 0) {
+                    needReplace = true;
+                    break;
+                }
+                if (mutation.type === 'characterData') {
+                    needReplace = true;
+                    break;
+                }
+            }
+            if (needReplace) {
+                // 延迟执行，等Vue渲染完成
+                setTimeout(() => _doPhoneReplace(), 50);
+            }
+        });
+        
+        _phoneRestoreObserver.observe(document.body, {
+            childList: true,
+            subtree: true,
+            characterData: true
+        });
     }
     
-    return count;
+    // 定时轮询：每800ms全页扫描，确保覆盖Vue重渲染
+    if (!_phoneRestoreIntervalId) {
+        _phoneRestoreIntervalId = setInterval(() => {
+            _doPhoneReplace();
+        }, 800);
+    }
+    
+    console.log('[号码还原] 自动替换已启动（Observer + 定时轮询800ms）');
 }
 
-// 启动MutationObserver持续监听DOM变化，自动替换新出现的脱敏号码
-function startPhoneRestoreObserver() {
-    if (_phoneRestoreObserver) return; // 已在运行
-    
-    _phoneRestoreObserver = new MutationObserver((mutations) => {
-        if (Object.keys(_phoneRestoreMap).length === 0) return;
-        
-        for (const mutation of mutations) {
-            if (mutation.type === 'childList' && mutation.addedNodes.length > 0) {
-                for (const addedNode of mutation.addedNodes) {
-                    if (addedNode.nodeType === 1) { // Element node
-                        _doPhoneReplace(addedNode);
-                    } else if (addedNode.nodeType === 3) { // Text node
-                        const maskedRegex = /1\d{2}\*{4}\d{4}/g;
-                        if (maskedRegex.test(addedNode.textContent)) {
-                            maskedRegex.lastIndex = 0;
-                            addedNode.textContent = addedNode.textContent.replace(maskedRegex, (match) => {
-                                if (_phoneRestoreMap[match]) return _phoneRestoreMap[match];
-                                return match;
-                            });
-                        }
-                    }
-                }
-            }
-            // 处理文本变化（Vue等框架可能直接修改textContent）
-            if (mutation.type === 'characterData') {
-                const maskedRegex = /1\d{2}\*{4}\d{4}/g;
-                const target = mutation.target;
-                if (target.nodeType === 3 && maskedRegex.test(target.textContent)) {
-                    maskedRegex.lastIndex = 0;
-                    target.textContent = target.textContent.replace(maskedRegex, (match) => {
-                        if (_phoneRestoreMap[match]) return _phoneRestoreMap[match];
-                        return match;
-                    });
-                }
-            }
-        }
-    });
-    
-    _phoneRestoreObserver.observe(document.body, {
-        childList: true,
-        subtree: true,
-        characterData: true
-    });
-    
-    console.log('[号码还原] MutationObserver已启动，自动替换脱敏号码');
-}
-
-// 停止Observer
+// 停止自动替换
 function stopPhoneRestoreObserver() {
     if (_phoneRestoreObserver) {
         _phoneRestoreObserver.disconnect();
         _phoneRestoreObserver = null;
-        console.log('[号码还原] MutationObserver已停止');
     }
+    if (_phoneRestoreIntervalId) {
+        clearInterval(_phoneRestoreIntervalId);
+        _phoneRestoreIntervalId = null;
+    }
+    console.log('[号码还原] 自动替换已停止');
 }
+
 
 function restorePhoneNumbers() {
     // 如果已有映射数据且Observer在运行，提示状态
