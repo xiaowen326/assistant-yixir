@@ -13,7 +13,7 @@ var GM_xmlhttpRequest = window.__GM_xmlhttpRequest || function(opts) {
 // == 桥接结束 ==
 
 // == 版本标记 v20260520A ==
-window.__CESHI_VERSION = 'v20260612D';
+window.__CESHI_VERSION = 'v20260612E';
 // == 全局配置 ==
 const BASE_URL = "https://ares.yxqiche.com";
 let TOKEN = "";
@@ -981,6 +981,24 @@ function _doPhoneReplace(root) {
         }
         
         if (count > 0) console.log('[号码还原] 本次替换了', count, '个号码');
+        // 方法5: 如果当前document没找到，尝试扫描iframe
+        if (count === 0) {
+            try {
+                const iframes = document.querySelectorAll('iframe');
+                for (let i = 0; i < iframes.length; i++) {
+                    try {
+                        const iframeDoc = iframes[i].contentDocument;
+                        if (iframeDoc && iframeDoc.body) {
+                            const iframeCount = _doPhoneReplaceInDoc(iframeDoc);
+                            count += iframeCount;
+                        }
+                    } catch(e) {
+                        // 跨域iframe，跳过
+                    }
+                }
+            } catch(e) {}
+        }
+        
         return count;
     } catch(e) {
         console.error('[号码还原] _doPhoneReplace错误:', e);
@@ -988,6 +1006,60 @@ function _doPhoneReplace(root) {
     } finally {
         _phoneRestoreIsReplacing = false;
     }
+}
+
+// 在指定document上执行替换
+function _doPhoneReplaceInDoc(doc) {
+    let count = 0;
+    
+    // 扫描文本节点
+    const walker = document.createTreeWalker(
+        doc.body,
+        NodeFilter.SHOW_TEXT,
+        null,
+        false
+    );
+    const textNodes = [];
+    let node;
+    while (node = walker.nextNode()) {
+        const txt = node.textContent;
+        if (txt && txt.length < 30 && /1\d{2}\*{4}\d{4}/.test(txt)) {
+            const parent = node.parentElement;
+            if (parent && parent.tagName !== 'SCRIPT' && parent.tagName !== 'STYLE') {
+                textNodes.push(node);
+            }
+        }
+    }
+    for (const textNode of textNodes) {
+        const original = textNode.textContent;
+        const modified = original.replace(/1\d{2}\*{4}\d{4}/g, (match) => {
+            if (_phoneRestoreMap[match]) { count++; return _phoneRestoreMap[match]; }
+            return match;
+        });
+        if (modified !== original) {
+            textNode.textContent = modified;
+        }
+    }
+    
+    // 扫描叶子元素
+    const allEls = doc.querySelectorAll('*');
+    for (const el of allEls) {
+        if (el.tagName === 'SCRIPT' || el.tagName === 'STYLE' || el.tagName === 'NOSCRIPT') continue;
+        if (el.children.length <= 1) {
+            const txt = el.textContent;
+            if (txt && txt.length < 30 && /1\d{2}\*{4}\d{4}/.test(txt)) {
+                const modified = txt.replace(/1\d{2}\*{4}\d{4}/g, (match) => {
+                    if (_phoneRestoreMap[match]) { count++; return _phoneRestoreMap[match]; }
+                    return match;
+                });
+                if (modified !== txt) {
+                    el.textContent = modified;
+                }
+            }
+        }
+    }
+    
+    return count;
 }
 
 // 启动自动替换：MutationObserver + 定时轮询双保险
@@ -1241,6 +1313,51 @@ function restorePhoneNumbers() {
             log('🔄 自动替换模式已开启！', '#4CAF50');
             log('💡 之后每次点进客户详情，脱敏号码会自动还原', '#2196F3');
             log('💡 重新点击「号码还原」按钮可立即替换或重新上传', '#2196F3');
+            
+            // 诊断信息
+            const maskedInPage = document.body.innerText.match(/1\d{2}\*{4}\d{4}/g);
+            const uniqueMasked = maskedInPage ? [...new Set(maskedInPage)] : [];
+            log('📊 诊断：页面中脱敏号码 ' + (uniqueMasked.length) + ' 个', '#2196F3');
+            if (uniqueMasked.length > 0) {
+                const matchable = uniqueMasked.filter(m => _phoneRestoreMap[m]);
+                log('📊 诊断：可匹配的 ' + matchable.length + ' 个', matchable.length > 0 ? '#4CAF50' : '#FF9800');
+                const unmatchable = uniqueMasked.filter(m => !_phoneRestoreMap[m]);
+                if (unmatchable.length > 0) {
+                    log('📊 诊断：无法匹配的 ' + unmatchable.length + ' 个: ' + unmatchable.slice(0,5).join(', '), '#FF9800');
+                }
+            } else {
+                log('⚠️ 诊断：页面中未找到脱敏号码格式(157****8648)', '#FF9800');
+                log('⚠️ 可能原因：1.当前页面没有联系人信息 2.号码格式不同 3.脚本运行在错误的上下文', '#FF9800');
+            }
+            
+            // 测试DOM替换能力
+            const testWalker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, null, false);
+            let testFound = 0;
+            let tn;
+            while(tn = testWalker.nextNode()) {
+                if(tn.textContent && /1\d{2}\*{4}\d{4}/.test(tn.textContent)) testFound++;
+            }
+            log('📊 诊断：DOM文本节点中脱敏号码 ' + testFound + ' 个', testFound > 0 ? '#4CAF50' : '#FF9800');
+            if (testFound === 0 && uniqueMasked.length > 0) {
+                log('⚠️ 关键发现：页面上有脱敏号码但DOM文本节点找不到！说明号码不在当前document中', '#f44336');
+                log('⚠️ 可能是iframe问题：脚本可能运行在父页面而非ares iframe中', '#f44336');
+                // 尝试扫描iframe
+                const iframes = document.querySelectorAll('iframe');
+                log('📊 诊断：页面中有 ' + iframes.length + ' 个iframe', '#2196F3');
+                for(let fi=0; fi<iframes.length; fi++) {
+                    try {
+                        const iframeDoc = iframes[fi].contentDocument;
+                        if(iframeDoc) {
+                            const iframeMasked = iframeDoc.body.innerText.match(/1\d{2}\*{4}\d{4}/g);
+                            log('📊 iframe[' + fi + ']中脱敏号码: ' + (iframeMasked ? iframeMasked.length : 0) + ' 个', '#2196F3');
+                        } else {
+                            log('📊 iframe[' + fi + ']: 无法访问(跨域)', '#FF9800');
+                        }
+                    } catch(e) {
+                        log('📊 iframe[' + fi + ']: 跨域无法访问', '#FF9800');
+                    }
+                }
+            }
 
             // 更新按钮文字提示
             const btns = document.querySelectorAll('#helper-container button');
@@ -5383,7 +5500,7 @@ function createPasswordDialog(callback) {
 // == 初始化助手 ==
 // 跨标签页单实例：window变量 + DOM检测 + GM锁(5秒心跳,15秒过期,崩溃快速恢复)
 (function initHelper() {
-    if (window.location.hostname !== 'ares.yxqiche.com' && !window.location.hostname.includes('ares.yxqiche')) {
+    if (window.location.hostname !== 'ares.yxqiche.com' && !window.location.hostname.includes('ares.yxqiche') && window.location.hostname !== 'yun.yxqiche.com' && !window.location.hostname.includes('yun.yxqiche')) {
         return;
     }
 
