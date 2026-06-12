@@ -13,7 +13,7 @@ var GM_xmlhttpRequest = window.__GM_xmlhttpRequest || function(opts) {
 // == 桥接结束 ==
 
 // == 版本标记 v20260520A ==
-window.__CESHI_VERSION = 'v20260520A';
+window.__CESHI_VERSION = 'v20260612A';
 // == 全局配置 ==
 const BASE_URL = "https://ares.yxqiche.com";
 let TOKEN = "";
@@ -861,6 +861,307 @@ function getTokenFromCookies() {
     }
     return null;
 }
+
+// == 号码还原功能 ==
+// 动态加载SheetJS库
+let _xlsxLoaded = false;
+function loadXLSX() {
+    return new Promise((resolve, reject) => {
+        if (window.XLSX) {
+            _xlsxLoaded = true;
+            resolve(window.XLSX);
+            return;
+        }
+        const script = document.createElement('script');
+        script.src = 'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js';
+        script.onload = () => {
+            _xlsxLoaded = true;
+            resolve(window.XLSX);
+        };
+        script.onerror = () => reject(new Error('SheetJS库加载失败'));
+        document.head.appendChild(script);
+    });
+}
+
+function restorePhoneNumbers() {
+    // 创建弹窗
+    const overlay = document.createElement('div');
+    overlay.style.cssText = `
+        position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+        background: rgba(0,0,0,0.5); z-index: 100000;
+        display: flex; justify-content: center; align-items: center;
+    `;
+
+    const dialog = document.createElement('div');
+    dialog.style.cssText = `
+        background: #fff; border-radius: 12px; padding: 24px;
+        box-shadow: 0 8px 32px rgba(0,0,0,0.3); width: 480px;
+        font-family: Arial, sans-serif; color: #333;
+    `;
+
+    // 标题
+    const title = document.createElement('div');
+    title.style.cssText = 'font-size: 18px; font-weight: bold; margin-bottom: 16px; color: #333;';
+    title.textContent = '📱 号码还原 - 上传Excel替换脱敏号码';
+
+    // 说明
+    const desc = document.createElement('div');
+    desc.style.cssText = 'font-size: 13px; color: #666; margin-bottom: 16px; line-height: 1.6; background: #f5f5f5; padding: 10px; border-radius: 6px;';
+    desc.innerHTML = '上传从小程序导出的号码表格Excel，自动替换页面上的脱敏号码为明文。<br>列映射：B列姓名、C列电话(加密)、E列证件号、J列关系、K列联系人姓名、L列联系人电话(明文)';
+
+    // 拖拽区域
+    const dropZone = document.createElement('div');
+    dropZone.id = 'restore-drop-zone';
+    dropZone.style.cssText = `
+        border: 2px dashed #ccc; border-radius: 8px; padding: 30px;
+        text-align: center; cursor: pointer; transition: all 0.3s;
+        margin-bottom: 16px; color: #999; font-size: 14px;
+    `;
+    dropZone.innerHTML = '📥 点击选择Excel文件或拖拽到此处<br><span style="font-size:12px;color:#bbb;">支持 .xlsx .xls 格式</span>';
+
+    const fileInput = document.createElement('input');
+    fileInput.type = 'file';
+    fileInput.accept = '.xlsx,.xls';
+    fileInput.style.display = 'none';
+
+    dropZone.addEventListener('click', () => fileInput.click());
+    dropZone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        dropZone.style.borderColor = '#4CAF50';
+        dropZone.style.background = '#e8f5e9';
+    });
+    dropZone.addEventListener('dragleave', () => {
+        dropZone.style.borderColor = '#ccc';
+        dropZone.style.background = '';
+    });
+    dropZone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        dropZone.style.borderColor = '#ccc';
+        dropZone.style.background = '';
+        if (e.dataTransfer.files.length > 0) {
+            handleFile(e.dataTransfer.files[0]);
+        }
+    });
+    fileInput.addEventListener('change', () => {
+        if (fileInput.files.length > 0) {
+            handleFile(fileInput.files[0]);
+        }
+    });
+
+    // 状态日志
+    const logArea = document.createElement('div');
+    logArea.id = 'restore-log';
+    logArea.style.cssText = `
+        max-height: 200px; overflow-y: auto; font-size: 12px;
+        color: #666; background: #fafafa; border-radius: 6px;
+        padding: 10px; margin-bottom: 16px; display: none;
+        border: 1px solid #eee; line-height: 1.8;
+    `;
+
+    // 按钮
+    const btnContainer = document.createElement('div');
+    btnContainer.style.cssText = 'text-align: right;';
+
+    const closeBtn = document.createElement('button');
+    closeBtn.textContent = '关闭';
+    closeBtn.style.cssText = `
+        padding: 8px 24px; border: 1px solid #ddd; border-radius: 6px;
+        background: #fff; color: #666; font-size: 14px; cursor: pointer;
+    `;
+    closeBtn.addEventListener('click', () => overlay.remove());
+
+    btnContainer.appendChild(closeBtn);
+
+    dialog.appendChild(title);
+    dialog.appendChild(desc);
+    dialog.appendChild(dropZone);
+    dialog.appendChild(fileInput);
+    dialog.appendChild(logArea);
+    dialog.appendChild(btnContainer);
+    overlay.appendChild(dialog);
+    document.body.appendChild(overlay);
+
+    // 处理文件
+    async function handleFile(file) {
+        logArea.style.display = 'block';
+        const log = (msg, color) => {
+            const line = document.createElement('div');
+            line.style.color = color || '#666';
+            line.textContent = msg;
+            logArea.appendChild(line);
+            logArea.scrollTop = logArea.scrollHeight;
+        };
+
+        log('📂 正在读取文件: ' + file.name);
+
+        try {
+            // 加载SheetJS
+            log('⏳ 正在加载SheetJS库...');
+            const XLSX = await loadXLSX();
+            log('✅ SheetJS库加载成功', '#4CAF50');
+
+            // 读取文件
+            const arrayBuffer = await file.arrayBuffer();
+            const workbook = XLSX.read(arrayBuffer, { type: 'array' });
+            const sheetName = workbook.SheetNames[0];
+            const sheet = workbook.Sheets[sheetName];
+            const jsonData = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
+
+            log(`📊 读取工作表: ${sheetName}，共 ${jsonData.length} 行`);
+
+            // 构建号码映射
+            // 主映射: 脱敏号码 → 明文号码 (如 "157****8648" → "15712348648")
+            const maskedToPlain = {};
+            // 辅映射: 证件号后6位+关系+联系人姓名 → 明文号码
+            const idRelationToPlain = {};
+
+            let validRows = 0;
+            let skippedRows = 0;
+
+            for (let i = 1; i < jsonData.length; i++) { // 跳过表头
+                const row = jsonData[i];
+                const name = String(row[1] || '').trim();           // B列 姓名
+                const encryptedPhone = String(row[2] || '').trim(); // C列 电话(加密/脱敏)
+                const idNumber = String(row[4] || '').trim();       // E列 证件号
+                const relation = String(row[9] || '').trim();       // J列 关系
+                const contactName = String(row[10] || '').trim();   // K列 联系人姓名
+                const plainPhone = String(row[11] || '').trim();    // L列 联系人电话(明文)
+
+                if (!plainPhone || plainPhone.length < 11) {
+                    skippedRows++;
+                    continue;
+                }
+
+                validRows++;
+
+                // 主映射：如果C列是脱敏格式 (如 157****8648)
+                const maskedMatch = encryptedPhone.match(/^1\d{2}\*{4}\d{4}$/);
+                if (maskedMatch) {
+                    maskedToPlain[encryptedPhone] = plainPhone;
+                }
+
+                // 也可以从明文号码本身生成脱敏格式来建立映射
+                // 因为C列可能是加密格式而非脱敏格式
+                if (plainPhone.length === 11 && /^1\d{10}$/.test(plainPhone)) {
+                    const autoMasked = plainPhone.substring(0, 3) + '****' + plainPhone.substring(7);
+                    maskedToPlain[autoMasked] = plainPhone;
+                }
+
+                // 辅映射：证件号后6位+关系+联系人姓名 → 明文号码
+                if (idNumber && relation && contactName) {
+                    const idSuffix = idNumber.length >= 6 ? idNumber.slice(-6) : idNumber;
+                    const key = idSuffix + '|' + relation + '|' + contactName;
+                    idRelationToPlain[key] = plainPhone;
+                }
+            }
+
+            log(`📋 有效行数: ${validRows}，跳过: ${skippedRows}`);
+            log(`📋 主映射(脱敏→明文): ${Object.keys(maskedToPlain).length} 条`);
+            log(`📋 辅映射(证件+关系→明文): ${Object.keys(idRelationToPlain).length} 条`);
+
+            // 扫描DOM并替换
+            let replacedCount = 0;
+            const maskedRegex = /1\d{2}\*{4}\d{4}/g;
+
+            // 替换所有文本节点中的脱敏号码
+            function replaceInTextNodes() {
+                const walker = document.createTreeWalker(
+                    document.body,
+                    NodeFilter.SHOW_TEXT,
+                    null,
+                    false
+                );
+
+                const textNodes = [];
+                let node;
+                while (node = walker.nextNode()) {
+                    if (node.parentElement && maskedRegex.test(node.textContent)) {
+                        maskedRegex.lastIndex = 0;
+                        textNodes.push(node);
+                    }
+                }
+
+                for (const textNode of textNodes) {
+                    const original = textNode.textContent;
+                    let modified = original.replace(maskedRegex, (match) => {
+                        if (maskedToPlain[match]) {
+                            replacedCount++;
+                            return maskedToPlain[match];
+                        }
+                        return match;
+                    });
+                    if (modified !== original) {
+                        textNode.textContent = modified;
+                    }
+                }
+            }
+
+            // 替换input/textarea中的脱敏号码
+            function replaceInInputs() {
+                const inputs = document.querySelectorAll('input[type="text"], input:not([type]), textarea');
+                for (const input of inputs) {
+                    if (maskedRegex.test(input.value)) {
+                        maskedRegex.lastIndex = 0;
+                        const original = input.value;
+                        input.value = original.replace(maskedRegex, (match) => {
+                            if (maskedToPlain[match]) {
+                                replacedCount++;
+                                return maskedToPlain[match];
+                            }
+                            return match;
+                        });
+                    }
+                }
+            }
+
+            // 替换页面表格中的脱敏号码（Vue/React渲染的DOM）
+            function replaceInTableCells() {
+                const cells = document.querySelectorAll('td, span, div');
+                for (const cell of cells) {
+                    // 只处理直接文本内容较短的元素（避免处理整个大容器）
+                    if (cell.childNodes.length === 1 && cell.childNodes[0].nodeType === 3) {
+                        const original = cell.textContent;
+                        if (maskedRegex.test(original) && original.trim().length <= 20) {
+                            maskedRegex.lastIndex = 0;
+                            const modified = original.replace(maskedRegex, (match) => {
+                                if (maskedToPlain[match]) {
+                                    replacedCount++;
+                                    return maskedToPlain[match];
+                                }
+                                return match;
+                            });
+                            if (modified !== original) {
+                                cell.textContent = modified;
+                            }
+                        }
+                    }
+                }
+            }
+
+            log('🔍 正在扫描页面并替换...');
+            replaceInTextNodes();
+            replaceInInputs();
+            replaceInTableCells();
+
+            log(`✅ 替换完成！共替换 ${replacedCount} 个脱敏号码`, '#4CAF50');
+
+            if (replacedCount === 0) {
+                log('⚠️ 未找到可替换的脱敏号码，可能页面无脱敏号码或格式不匹配', '#FF9800');
+                log('💡 提示：如果页面是动态加载的，请先滚动加载完数据再执行号码还原', '#2196F3');
+            }
+
+            // 更新拖拽区域显示完成状态
+            dropZone.innerHTML = '✅ 处理完成！可重新上传文件再次替换';
+            dropZone.style.borderColor = '#4CAF50';
+
+        } catch (err) {
+            log('❌ 错误: ' + err.message, '#f44336');
+            console.error('[号码还原] 错误:', err);
+        }
+    }
+}
+
+
 
 function validateToken() {
     if (!TOKEN) {
@@ -4623,6 +4924,7 @@ function createHelperUI() {
     { text: '批量外呼', action: batchDoCall, color: '#00695C' },
     { text: '批量导入通讯录', action: synPhoneToWorkPhone, color: '#1565C0' }, // 蓝色 - 批量导入联系人到工作机
     { text: '显示/隐藏水印' , action: toggleWatermark, color: '#5D4037',}, // 水印控制
+    { text: '号码还原', action: restorePhoneNumbers, color: '#00897B' }, // 号码还原-上传Excel替换脱敏号码
     // { text: '设置Token', action: setToken, color: '#607D8B' }
   ];
 
