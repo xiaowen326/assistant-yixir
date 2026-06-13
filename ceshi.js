@@ -12,8 +12,8 @@ var GM_xmlhttpRequest = window.__GM_xmlhttpRequest || function(opts) {
 };
 // == 桥接结束 ==
 
-// == 版本标记 v20260613E ==
-window.__CESHI_VERSION = 'v20260613E';
+// == 版本标记 v20260613F ==
+window.__CESHI_VERSION = 'v20260613F';
 // == 全局配置 ==
 const BASE_URL = "https://ares.yxqiche.com";
 let TOKEN = "";
@@ -4295,9 +4295,26 @@ async function batchQueryPhones() {
         return;
     }
 
+    // 动态加载XLSX库（如果未加载）
     if (!window.XLSX) {
-        createNotification("XLSX库未加载，请刷新页面重试", false);
-        return;
+        createNotification("正在加载XLSX库...", true);
+        await new Promise((resolve, reject) => {
+            const script = document.createElement('script');
+            script.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+            script.onload = () => {
+                if (window.XLSX) {
+                    createNotification("XLSX库加载成功", true);
+                    resolve();
+                } else {
+                    reject(new Error("XLSX加载失败"));
+                }
+            };
+            script.onerror = () => reject(new Error("XLSX库网络加载失败"));
+            document.head.appendChild(script);
+        }).catch(err => {
+            createNotification(err.message + "，请检查网络连接", false);
+            return;
+        });
     }
 
     // 弹出文件选择对话框
@@ -4413,7 +4430,6 @@ async function batchQueryPhones() {
     const relationKey = headers.find(h => h === '关系');
     const locationKey = headers.find(h => h === '归属地');
     const certKey = headers.find(h => h === '证件号');
-    const nameKey = headers.find(h => h === '姓名');
 
     const results = excelData.map(row => {
         const newRow = { ...row };
