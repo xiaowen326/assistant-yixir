@@ -12,8 +12,8 @@ var GM_xmlhttpRequest = window.__GM_xmlhttpRequest || function(opts) {
 };
 // == 桥接结束 ==
 
-// == 版本标记 v20260613B ==
-window.__CESHI_VERSION = 'v20260613B';
+// == 版本标记 v20260613C ==
+window.__CESHI_VERSION = 'v20260613C';
 // == 全局配置 ==
 const BASE_URL = "https://ares.yxqiche.com";
 let TOKEN = "";
@@ -4389,25 +4389,22 @@ async function batchQueryPhones() {
         counterElement.textContent = `已完成: ${applyNos.length}/${applyNos.length}`;
         progressBar.style.width = "100%";
 
+        // 先展示结果表格
+        displayResults(results, "号码查询结果");
+
+        // 同时自动导出Excel（如果XLSX可用）
         if (window.XLSX && results.length > 0) {
             const ws = XLSX.utils.json_to_sheet(results);
             const wb = XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(wb, ws, "号码查询结果");
             ws["!cols"] = [
-                { wch: 16 },
-                { wch: 10 },
-                { wch: 10 },
-                { wch: 10 },
-                { wch: 10 },
-                { wch: 16 },
-                { wch: 22 }
+                { wch: 16 }, { wch: 10 }, { wch: 10 },
+                { wch: 10 }, { wch: 10 }, { wch: 16 }, { wch: 22 }
             ];
             const now = new Date();
             const dateStr = now.getFullYear() + String(now.getMonth()+1).padStart(2,"0") + String(now.getDate()).padStart(2,"0") + "_" + String(now.getHours()).padStart(2,"0") + String(now.getMinutes()).padStart(2,"0");
             XLSX.writeFile(wb, "号码查询_" + dateStr + ".xlsx");
             createNotification("查询完成！共" + results.length + "条号码记录，已导出Excel", true);
-        } else {
-            displayResults(results, "号码查询结果");
         }
 
     } finally {
