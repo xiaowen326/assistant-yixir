@@ -12,8 +12,8 @@ var GM_xmlhttpRequest = window.__GM_xmlhttpRequest || function(opts) {
 };
 // == 桥接结束 ==
 
-// == 版本标记 v20260613D ==
-window.__CESHI_VERSION = 'v20260613D';
+// == 版本标记 v20260613E ==
+window.__CESHI_VERSION = 'v20260613E';
 // == 全局配置 ==
 const BASE_URL = "https://ares.yxqiche.com";
 let TOKEN = "";
@@ -4295,263 +4295,171 @@ async function batchQueryPhones() {
         return;
     }
 
-    const resultContainer = document.getElementById('result-container');
-    const table = resultContainer?.querySelector('table');
-
-    // === 模式1：已有结果表格，自动替换号码 ===
-    if (table) {
-        const headerRow = table.querySelector('tr');
-        if (!headerRow) { createNotification("未找到表格数据", false); return; }
-
-        // 获取表头，确定列索引
-        const headers = Array.from(headerRow.querySelectorAll('th')).map(th => th.textContent.trim());
-        const applyNoIdx = headers.indexOf('申请号');
-        const phoneIdx = headers.indexOf('电话');
-        const contactPhoneIdx = headers.indexOf('联系人电话');
-        const contactNameIdx = headers.indexOf('联系人姓名');
-        const relationIdx = headers.indexOf('关系');
-
-        if (applyNoIdx === -1) {
-            createNotification("当前表格没有申请号列，无法自动查询", false);
-            return;
-        }
-
-        // 提取所有数据行
-        const dataRows = Array.from(table.querySelectorAll('tr')).slice(1);
-        if (dataRows.length === 0) {
-            createNotification("表格没有数据行", false);
-            return;
-        }
-
-        // 收集所有唯一申请号
-        const applyNoSet = new Set();
-        dataRows.forEach(row => {
-            const cells = row.querySelectorAll('td');
-            if (cells[applyNoIdx]) {
-                applyNoSet.add(cells[applyNoIdx].textContent.trim());
-            }
-        });
-
-        const applyNos = Array.from(applyNoSet);
-        const { loadingElement, counterElement, progressBar } = createProgressBar(`正在查询号码 (${applyNos.length}个申请号)`, applyNos.length);
-        
-        let completed = 0;
-        const phoneMap = {}; // applyNo -> { ownPhone, contacts: [{name, relation, phone}] }
-
-        try {
-            const CONCURRENCY = 5;
-            for (let i = 0; i < applyNos.length; i += CONCURRENCY) {
-                const batch = applyNos.slice(i, i + CONCURRENCY);
-                await Promise.all(batch.map(async (applyNo) => {
-                    try {
-                        const [info, contacts] = await Promise.all([
-                            getInfo(applyNo),
-                            getContact(applyNo)
-                        ]);
-
-                        const base = info?.base || {};
-                        phoneMap[applyNo] = {
-                            ownPhone: base.plaintextPhone || '',
-                            contacts: (contacts || []).map(c => ({
-                                name: c.name || '',
-                                relation: c.relation || '',
-                                phone: c.plaintextPhone || c.phone || ''
-                            }))
-                        };
-                    } catch (error) {
-                        phoneMap[applyNo] = { ownPhone: '', contacts: [] };
-                    } finally {
-                        completed++;
-                        updateProgress(counterElement, progressBar, completed, applyNos.length);
-                    }
-                }));
-            }
-
-            // 替换表格中的号码
-            let replacedCount = 0;
-            dataRows.forEach(row => {
-                const cells = row.querySelectorAll('td');
-                const applyNo = cells[applyNoIdx]?.textContent.trim();
-                const data = phoneMap[applyNo];
-                if (!data) return;
-
-                // 替换本人电话列
-                if (phoneIdx !== -1 && data.ownPhone) {
-                    const oldPhone = cells[phoneIdx].textContent.trim();
-                    if (oldPhone !== data.ownPhone) {
-                        cells[phoneIdx].textContent = data.ownPhone;
-                        cells[phoneIdx].style.color = '#00ff88';
-                        replacedCount++;
-                    }
-                }
-
-                // 替换联系人电话列
-                if (contactPhoneIdx !== -1 && data.contacts.length > 0) {
-                    const contactName = contactNameIdx !== -1 ? cells[contactNameIdx].textContent.trim() : '';
-                    const relation = relationIdx !== -1 ? cells[relationIdx].textContent.trim() : '';
-
-                    // 匹配联系人：优先按姓名+关系匹配
-                    let matched = data.contacts.find(c => c.name === contactName && c.relation === relation);
-                    if (!matched) matched = data.contacts.find(c => c.name === contactName);
-                    if (!matched) matched = data.contacts.find(c => c.relation === relation);
-
-                    if (matched && matched.phone) {
-                        const oldPhone = cells[contactPhoneIdx].textContent.trim();
-                        if (oldPhone !== matched.phone) {
-                            cells[contactPhoneIdx].textContent = matched.phone;
-                            cells[contactPhoneIdx].style.color = '#00ff88';
-                            replacedCount++;
-                        }
-                    }
-                }
-            });
-
-            counterElement.textContent = `已完成: ${applyNos.length}/${applyNos.length}`;
-            progressBar.style.width = "100%";
-
-            // 自动重新导出替换后的Excel
-            if (window.XLSX) {
-                const newResults = [];
-                dataRows.forEach(row => {
-                    const cells = row.querySelectorAll('td');
-                    const rowObj = {};
-                    headers.forEach((h, idx) => {
-                        rowObj[h] = cells[idx] ? cells[idx].textContent.trim() : '';
-                    });
-                    newResults.push(rowObj);
-                });
-
-                const ws = XLSX.utils.json_to_sheet(newResults);
-                const wb = XLSX.utils.book_new();
-                XLSX.utils.book_append_sheet(wb, ws, "号码查询结果");
-                const now = new Date();
-                const dateStr = now.getFullYear() + String(now.getMonth()+1).padStart(2,"0") + String(now.getDate()).padStart(2,"0") + "_" + String(now.getHours()).padStart(2,"0") + String(now.getMinutes()).padStart(2,"0");
-                XLSX.writeFile(wb, "号码查询_已替换_" + dateStr + ".xlsx");
-                createNotification(`替换完成！共替换${replacedCount}个号码，已导出Excel`, true);
-            } else {
-                createNotification(`替换完成！共替换${replacedCount}个号码`, true);
-            }
-
-        } finally {
-            if (loadingElement.parentNode) loadingElement.remove();
-        }
+    if (!window.XLSX) {
+        createNotification("XLSX库未加载，请刷新页面重试", false);
         return;
     }
 
-    // === 模式2：没有结果表格，手动输入申请编号查询 ===
-    const input = showPrompt("批量查询号码", "请输入申请编号（多个用逗号、空格或换行分隔）:");
-    if (!input || !input.trim()) return;
+    // 弹出文件选择对话框
+    const fileInput = document.createElement('input');
+    fileInput.type = 'file';
+    fileInput.accept = '.xlsx,.xls';
+    fileInput.style.display = 'none';
+    document.body.appendChild(fileInput);
 
-    const applyNos = input.split(/[,，\s]+/).filter(no => no.trim());
-    if (applyNos.length === 0) {
-        createNotification("未输入有效的申请编号!", false);
+    const selectedFile = await new Promise((resolve) => {
+        fileInput.onchange = (e) => resolve(e.target.files[0] || null);
+        fileInput.oncancel = () => resolve(null);
+        fileInput.click();
+    });
+
+    document.body.removeChild(fileInput);
+
+    if (!selectedFile) {
+        createNotification("未选择文件", false);
         return;
     }
 
-    const { loadingElement, counterElement, progressBar } = createProgressBar(`正在查询号码 (${applyNos.length}个)`, applyNos.length);
+    // 读取Excel文件
+    const { loadingElement: readLoading } = createProgressBar('正在读取文件...', 1);
+    document.body.appendChild(readLoading);
 
-    const results = [];
+    let excelData;
+    try {
+        const arrayBuffer = await selectedFile.arrayBuffer();
+        const workbook = XLSX.read(arrayBuffer, { type: 'array' });
+        const sheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[sheetName];
+        excelData = XLSX.utils.sheet_to_json(worksheet, { defval: '' });
+    } catch (error) {
+        createNotification("读取Excel文件失败: " + error.message, false);
+        readLoading.remove();
+        return;
+    } finally {
+        if (readLoading.parentNode) readLoading.remove();
+    }
+
+    if (!excelData || excelData.length === 0) {
+        createNotification("Excel文件中没有数据", false);
+        return;
+    }
+
+    // 检查必要列
+    const headers = Object.keys(excelData[0]);
+    const applyNoKey = headers.find(h => h.includes('申请号') || h.includes('申请编号'));
+    if (!applyNoKey) {
+        createNotification("Excel中没有找到申请号列", false);
+        return;
+    }
+
+    // 收集唯一申请号
+    const applyNoSet = new Set();
+    excelData.forEach(row => {
+        const val = String(row[applyNoKey] || '').trim();
+        if (val) applyNoSet.add(val);
+    });
+
+    const applyNos = Array.from(applyNoSet);
+    const { loadingElement, counterElement, progressBar } = createProgressBar(`正在查询号码 (${applyNos.length}个申请号)`, applyNos.length);
+    document.body.appendChild(loadingElement);
+
+    // 查询API获取明文号码
     let completed = 0;
+    const phoneMap = {}; // applyNo -> { ownPhone, certificateNumber, name, contacts: [{name, relation, plaintextPhone, phone}] }
 
     try {
         const CONCURRENCY = 5;
         for (let i = 0; i < applyNos.length; i += CONCURRENCY) {
             const batch = applyNos.slice(i, i + CONCURRENCY);
-            const batchResults = await Promise.all(batch.map(async (applyNo) => {
+            await Promise.all(batch.map(async (applyNo) => {
                 try {
                     const [info, contacts] = await Promise.all([
-                        getInfo(applyNo.trim()),
-                        getContact(applyNo.trim())
+                        getInfo(applyNo),
+                        getContact(applyNo)
                     ]);
 
                     const base = info?.base || {};
-                    const phone = base.plaintextPhone || "无";
-                    const certificateNumber = base.certificateNumber || "无";
-                    const name = base.name || "无";
-
-                    const phoneEntries = [];
-
-                    if (phone && phone !== "无") {
-                        phoneEntries.push({
-                            申请编号: applyNo.trim(),
-                            姓名: name,
-                            号码类型: "本人",
-                            联系人姓名: name,
-                            关系: "本人",
-                            电话号码: phone,
-                            证件号: certificateNumber
-                        });
-                    }
-
-                    if (contacts && contacts.length > 0) {
-                        for (const contact of contacts) {
-                            const cPhone = contact.plaintextPhone || contact.phone || "无";
-                            phoneEntries.push({
-                                申请编号: applyNo.trim(),
-                                姓名: name,
-                                号码类型: contact.relation || "联系人",
-                                联系人姓名: contact.name || "无",
-                                关系: contact.relation || "无",
-                                电话号码: cPhone,
-                                证件号: certificateNumber
-                            });
-                        }
-                    }
-
-                    if (phoneEntries.length === 0) {
-                        phoneEntries.push({
-                            申请编号: applyNo.trim(),
-                            姓名: name,
-                            号码类型: "无",
-                            联系人姓名: "无",
-                            关系: "无",
-                            电话号码: "无",
-                            证件号: certificateNumber
-                        });
-                    }
-
-                    return phoneEntries;
+                    phoneMap[applyNo] = {
+                        ownPhone: base.plaintextPhone || '',
+                        certificateNumber: base.certificateNumber || '',
+                        name: base.name || '',
+                        contacts: (contacts || []).map(c => ({
+                            name: c.name || '',
+                            relation: c.relation || '',
+                            plaintextPhone: c.plaintextPhone || '',
+                            phone: c.phone || ''
+                        }))
+                    };
                 } catch (error) {
-                    return [{
-                        申请编号: applyNo.trim(),
-                        姓名: "查询失败",
-                        号码类型: "-",
-                        联系人姓名: "-",
-                        关系: "-",
-                        电话号码: "错误: " + error.message,
-                        证件号: "-"
-                    }];
+                    phoneMap[applyNo] = { ownPhone: '', certificateNumber: '', name: '', contacts: [] };
                 } finally {
                     completed++;
                     updateProgress(counterElement, progressBar, completed, applyNos.length);
                 }
             }));
-
-            results.push(...batchResults.flat());
         }
 
         counterElement.textContent = `已完成: ${applyNos.length}/${applyNos.length}`;
         progressBar.style.width = "100%";
 
-        displayResults(results, "号码查询结果");
-
-        if (window.XLSX && results.length > 0) {
-            const ws = XLSX.utils.json_to_sheet(results);
-            const wb = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(wb, ws, "号码查询结果");
-            ws["!cols"] = [
-                { wch: 16 }, { wch: 10 }, { wch: 10 },
-                { wch: 10 }, { wch: 10 }, { wch: 16 }, { wch: 22 }
-            ];
-            const now = new Date();
-            const dateStr = now.getFullYear() + String(now.getMonth()+1).padStart(2,"0") + String(now.getDate()).padStart(2,"0") + "_" + String(now.getHours()).padStart(2,"0") + String(now.getMinutes()).padStart(2,"0");
-            XLSX.writeFile(wb, "号码查询_" + dateStr + ".xlsx");
-            createNotification("查询完成！共" + results.length + "条号码记录，已导出Excel", true);
-        }
-
     } finally {
         if (loadingElement.parentNode) loadingElement.remove();
     }
+
+    // 替换Excel数据中的号码
+    const phoneKey = headers.find(h => h === '电话');
+    const contactPhoneKey = headers.find(h => h === '联系人电话');
+    const contactNameKey = headers.find(h => h === '联系人姓名');
+    const relationKey = headers.find(h => h === '关系');
+    const locationKey = headers.find(h => h === '归属地');
+    const certKey = headers.find(h => h === '证件号');
+    const nameKey = headers.find(h => h === '姓名');
+
+    const results = excelData.map(row => {
+        const newRow = { ...row };
+        const applyNo = String(row[applyNoKey] || '').trim();
+        const data = phoneMap[applyNo];
+
+        if (data) {
+            // 替换本人电话
+            if (phoneKey && data.ownPhone) {
+                newRow[phoneKey] = data.ownPhone;
+            }
+
+            // 替换证件号
+            if (certKey && data.certificateNumber) {
+                newRow[certKey] = data.certificateNumber;
+            }
+
+            // 替换联系人电话
+            if (contactPhoneKey && data.contacts.length > 0) {
+                const contactName = contactNameKey ? String(row[contactNameKey] || '').trim() : '';
+                const relation = relationKey ? String(row[relationKey] || '').trim() : '';
+
+                // 匹配联系人：优先按姓名+关系匹配
+                let matched = data.contacts.find(c => c.name === contactName && c.relation === relation);
+                if (!matched) matched = data.contacts.find(c => c.name === contactName);
+                if (!matched) matched = data.contacts.find(c => c.relation === relation);
+
+                if (matched) {
+                    const newPhone = matched.plaintextPhone || matched.phone || '';
+                    if (newPhone) {
+                        newRow[contactPhoneKey] = newPhone;
+                        // 更新归属地
+                        if (locationKey) {
+                            newRow[locationKey] = getPhoneLocation(newPhone);
+                        }
+                    }
+                }
+            }
+        }
+
+        return newRow;
+    });
+
+    // 用displayResults展示结果
+    displayResults(results, '号码查询结果');
+    createNotification(`查询完成！共处理${results.length}条记录`, true);
 }
 
 // == 主界面（悬浮窗） ==
