@@ -12,7 +12,7 @@ var GM_xmlhttpRequest = window.__GM_xmlhttpRequest || function(opts) {
 };
 // == 桥接结束 ==
 
-// == 版本标记 v20260520A ==
+// == 版本标记 v20260613B ==
 window.__CESHI_VERSION = 'v20260613B';
 // == 全局配置 ==
 const BASE_URL = "https://ares.yxqiche.com";
@@ -4287,6 +4287,134 @@ function getRandomQuote() {
   return INSPIRATION_QUOTES[randomIndex];
 }
 
+
+// == 批量查询号码功能 ==
+async function batchQueryPhones() {
+    if (!validateToken()) {
+        createNotification("请先设置有效的Token", false);
+        return;
+    }
+
+    const input = showPrompt("批量查询号码", "请输入申请编号（多个用逗号、空格或换行分隔）:");
+    if (!input || !input.trim()) return;
+
+    const applyNos = input.split(/[,，\s]+/).filter(no => no.trim());
+    if (applyNos.length === 0) {
+        createNotification("未输入有效的申请编号!", false);
+        return;
+    }
+
+    const { loadingElement, counterElement, progressBar } = createProgressBar(`正在查询号码 (${applyNos.length}个)`, applyNos.length);
+
+    const results = [];
+    let completed = 0;
+
+    try {
+        const CONCURRENCY = 5;
+        for (let i = 0; i < applyNos.length; i += CONCURRENCY) {
+            const batch = applyNos.slice(i, i + CONCURRENCY);
+            const batchResults = await Promise.all(batch.map(async (applyNo) => {
+                try {
+                    const [info, contacts] = await Promise.all([
+                        getInfo(applyNo.trim()),
+                        getContact(applyNo.trim())
+                    ]);
+
+                    const base = info?.base || {};
+                    const phone = base.plaintextPhone || "无";
+                    const certificateNumber = base.certificateNumber || "无";
+                    const name = base.name || "无";
+
+                    const phoneEntries = [];
+
+                    if (phone && phone !== "无") {
+                        phoneEntries.push({
+                            申请编号: applyNo.trim(),
+                            姓名: name,
+                            号码类型: "本人",
+                            联系人姓名: name,
+                            关系: "本人",
+                            电话号码: phone,
+                            证件号: certificateNumber
+                        });
+                    }
+
+                    if (contacts && contacts.length > 0) {
+                        for (const contact of contacts) {
+                            const cPhone = contact.plaintextPhone || contact.phone || "无";
+                            phoneEntries.push({
+                                申请编号: applyNo.trim(),
+                                姓名: name,
+                                号码类型: contact.relation || "联系人",
+                                联系人姓名: contact.name || "无",
+                                关系: contact.relation || "无",
+                                电话号码: cPhone,
+                                证件号: certificateNumber
+                            });
+                        }
+                    }
+
+                    if (phoneEntries.length === 0) {
+                        phoneEntries.push({
+                            申请编号: applyNo.trim(),
+                            姓名: name,
+                            号码类型: "无",
+                            联系人姓名: "无",
+                            关系: "无",
+                            电话号码: "无",
+                            证件号: certificateNumber
+                        });
+                    }
+
+                    return phoneEntries;
+                } catch (error) {
+                    return [{
+                        申请编号: applyNo.trim(),
+                        姓名: "查询失败",
+                        号码类型: "-",
+                        联系人姓名: "-",
+                        关系: "-",
+                        电话号码: "错误: " + error.message,
+                        证件号: "-"
+                    }];
+                } finally {
+                    completed++;
+                    updateProgress(counterElement, progressBar, completed, applyNos.length);
+                }
+            }));
+
+            results.push(...batchResults.flat());
+        }
+
+        counterElement.textContent = `已完成: ${applyNos.length}/${applyNos.length}`;
+        progressBar.style.width = "100%";
+
+        if (window.XLSX && results.length > 0) {
+            const ws = XLSX.utils.json_to_sheet(results);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "号码查询结果");
+            ws["!cols"] = [
+                { wch: 16 },
+                { wch: 10 },
+                { wch: 10 },
+                { wch: 10 },
+                { wch: 10 },
+                { wch: 16 },
+                { wch: 22 }
+            ];
+            const now = new Date();
+            const dateStr = now.getFullYear() + String(now.getMonth()+1).padStart(2,"0") + String(now.getDate()).padStart(2,"0") + "_" + String(now.getHours()).padStart(2,"0") + String(now.getMinutes()).padStart(2,"0");
+            XLSX.writeFile(wb, "号码查询_" + dateStr + ".xlsx");
+            createNotification("查询完成！共" + results.length + "条号码记录，已导出Excel", true);
+        } else {
+            displayResults(results, "号码查询结果");
+        }
+
+    } finally {
+        if (loadingElement.parentNode) loadingElement.remove();
+    }
+}
+
 // == 主界面（悬浮窗） ==
 function createHelperUI() {
   if (document.getElementById('helper-container')) return;
@@ -4618,134 +4746,6 @@ function createHelperUI() {
     { text: '查询历史客诉', action: batchhistoryComplaint, color: '#C62828' }, // 深红色 - 代表警示和重要
     { text: '合并查询车辆信息', action: batchQueryCarAndBaseInfo, color: '#E64A19' }, // 橙红色 - 代表综合和整合
     //{ text: '查询短信数据', action: batchQuerySMSData, color: '#455A64' }, // 深灰色 - 代表数据和信息
-
-// == 批量查询号码功能 ==
-async function batchQueryPhones() {
-    if (!validateToken()) {
-        createNotification("请先设置有效的Token", false);
-        return;
-    }
-
-    const input = showPrompt("批量查询号码", "请输入申请编号（多个用逗号、空格或换行分隔）:");
-    if (!input || !input.trim()) return;
-
-    const applyNos = input.split(/[,，\s]+/).filter(no => no.trim());
-    if (applyNos.length === 0) {
-        createNotification("未输入有效的申请编号!", false);
-        return;
-    }
-
-    const { loadingElement, counterElement, progressBar } = createProgressBar(`正在查询号码 (${applyNos.length}个)`, applyNos.length);
-
-    const results = [];
-    let completed = 0;
-
-    try {
-        const CONCURRENCY = 5;
-        for (let i = 0; i < applyNos.length; i += CONCURRENCY) {
-            const batch = applyNos.slice(i, i + CONCURRENCY);
-            const batchResults = await Promise.all(batch.map(async (applyNo) => {
-                try {
-                    const [info, contacts] = await Promise.all([
-                        getInfo(applyNo.trim()),
-                        getContact(applyNo.trim())
-                    ]);
-
-                    const base = info?.base || {};
-                    const phone = base.plaintextPhone || "无";
-                    const certificateNumber = base.certificateNumber || "无";
-                    const name = base.name || "无";
-
-                    const phoneEntries = [];
-
-                    if (phone && phone !== "无") {
-                        phoneEntries.push({
-                            申请编号: applyNo.trim(),
-                            姓名: name,
-                            号码类型: "本人",
-                            联系人姓名: name,
-                            关系: "本人",
-                            电话号码: phone,
-                            证件号: certificateNumber
-                        });
-                    }
-
-                    if (contacts && contacts.length > 0) {
-                        for (const contact of contacts) {
-                            const cPhone = contact.plaintextPhone || contact.phone || "无";
-                            phoneEntries.push({
-                                申请编号: applyNo.trim(),
-                                姓名: name,
-                                号码类型: contact.relation || "联系人",
-                                联系人姓名: contact.name || "无",
-                                关系: contact.relation || "无",
-                                电话号码: cPhone,
-                                证件号: certificateNumber
-                            });
-                        }
-                    }
-
-                    if (phoneEntries.length === 0) {
-                        phoneEntries.push({
-                            申请编号: applyNo.trim(),
-                            姓名: name,
-                            号码类型: "无",
-                            联系人姓名: "无",
-                            关系: "无",
-                            电话号码: "无",
-                            证件号: certificateNumber
-                        });
-                    }
-
-                    return phoneEntries;
-                } catch (error) {
-                    return [{
-                        申请编号: applyNo.trim(),
-                        姓名: "查询失败",
-                        号码类型: "-",
-                        联系人姓名: "-",
-                        关系: "-",
-                        电话号码: "错误: " + error.message,
-                        证件号: "-"
-                    }];
-                } finally {
-                    completed++;
-                    updateProgress(counterElement, progressBar, completed, applyNos.length);
-                }
-            }));
-
-            results.push(...batchResults.flat());
-        }
-
-        counterElement.textContent = `已完成: ${applyNos.length}/${applyNos.length}`;
-        progressBar.style.width = "100%";
-
-        if (window.XLSX && results.length > 0) {
-            const ws = XLSX.utils.json_to_sheet(results);
-            const wb = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(wb, ws, "号码查询结果");
-            ws["!cols"] = [
-                { wch: 16 },
-                { wch: 10 },
-                { wch: 10 },
-                { wch: 10 },
-                { wch: 10 },
-                { wch: 16 },
-                { wch: 22 }
-            ];
-            const now = new Date();
-            const dateStr = now.getFullYear() + String(now.getMonth()+1).padStart(2,"0") + String(now.getDate()).padStart(2,"0") + "_" + String(now.getHours()).padStart(2,"0") + String(now.getMinutes()).padStart(2,"0");
-            XLSX.writeFile(wb, "号码查询_" + dateStr + ".xlsx");
-            createNotification("查询完成！共" + results.length + "条号码记录，已导出Excel", true);
-        } else {
-            displayResults(results, "号码查询结果");
-        }
-
-    } finally {
-        if (loadingElement.parentNode) loadingElement.remove();
-    }
-}
-
     { text: '查询短信数据', action: batchQueryData, color: '#455A64' }, // 深灰色 - 代表数据和信息
     { text: '批量实时扣款', action: batchRealTimeCharge, color: '#E91E63' }, // 红色 - 代表扣款操作
     { text: '批量外呼', action: batchDoCall, color: '#00695C' },
