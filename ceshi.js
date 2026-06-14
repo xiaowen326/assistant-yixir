@@ -3337,25 +3337,8 @@ async function firstRoundQuery(applyNo) {
 
         if (!response.ok) throw new Error(`HTTP错误! 状态: ${response.status}`);
 
-        const rawText = await response.text();
-        // 优先尝试JSON解析（结构化响应）
-        try {
-            const json = JSON.parse(rawText);
-            if (json.code !== undefined) {
-                // 标准JSON响应：code=0表示成功/未逾期，其他表示异常
-                if (json.data && typeof json.data === 'object') {
-                    // 若data中含逾期相关字段则判断为未还款
-                    const overdueFlag = json.data.hasOverdue
-                        || json.data.isOverdue
-                        || (json.data.repayStatus && /逾期/i.test(String(json.data.repayStatus)));
-                    return overdueFlag ? "未还款" : "已还款";
-                }
-                return json.code === 0 ? "已还款" : "未还款";
-            }
-        } catch (_) { /* 非JSON响应，回退到文本匹配 */ }
-
-        // 回退：文本关键词匹配（仅在没有JSON结构时使用）
-        return /\b已逾期\b/.test(rawText) ? "未还款" : "已还款";
+        const data = await response.text();
+        return data.includes("已逾期") ? "未还款" : "已还款";
     } catch (error) {
         console.error(`第一轮查询失败 (${applyNo}):`, error);
         return "查询失败";
@@ -3380,34 +3363,11 @@ async function secondRoundQuery(applyNo) {
 
         if (!response.ok) throw new Error(`HTTP错误! 状态: ${response.status}`);
 
-        const rawText = await response.text();
-        // 优先尝试JSON解析（结构化响应）
-        try {
-            const json = JSON.parse(rawText);
-            if (json.code !== undefined) {
-                if (json.code === 0 && json.data) {
-                    // 检查data中的扣款记录，判断是否有近期的成功扣款
-                    const records = json.data.records || json.data.list || (Array.isArray(json.data) ? json.data : []);
-                    if (Array.isArray(records) && records.length > 0) {
-                        for (const rec of records) {
-                            const status = rec.status || rec.chargeStatus || '';
-                            if (/成功/i.test(String(status))) {
-                                const dateStr = rec.chargeDate || rec.createTime || rec.settleDate || '';
-                                if (dateStr && isRecentDate(String(dateStr))) {
-                                    return "扣款成功";
-                                }
-                            }
-                        }
-                        return "扣款失败（扣款日期非今日或昨日）";
-                    }
-                }
-                return json.code === 0 ? "扣款成功" : `扣款失败: ${json.message || json.code}`;
-            }
-        } catch (_) { /* 非JSON响应，回退到文本匹配 */ }
+        const data = await response.text();
 
-        // 回退：文本关键词+日期匹配（仅在没有JSON结构时使用）
-        if (/\b成功\b/.test(rawText)) {
-            const allDates = extractDatesFromText(rawText);
+        // 精确判断扣款状态：先匹配"成功"，再核验日期
+        if (data.includes("成功")) {
+            const allDates = extractDatesFromText(data);
             for (const dateStr of allDates) {
                 if (isRecentDate(dateStr)) {
                     return "扣款成功";
