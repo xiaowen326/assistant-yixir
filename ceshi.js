@@ -14,6 +14,11 @@ var GM_xmlhttpRequest = window.__GM_xmlhttpRequest || function(opts) {
 
 // == 版本标记 v20260613F ==
 window.__CESHI_VERSION = 'v20260613F';
+// == 全局命名空间（集中管理全局状态，避免命名污染） ==
+window.__YX = window.__YX || {
+    batchCallAborted: false,
+    skipCallInterval: false
+};
 // == 全局配置 ==
 const BASE_URL = "https://ares.yxqiche.com";
 let TOKEN = "";
@@ -1037,8 +1042,7 @@ function asyncPrompt(title, message, defaultVal, placeholder) {
 }
 
 // == 批量外呼 ==
-// 全局取消标志
-window._batchCallAborted = false;
+// 全局取消标志（已迁移至 window.__YX 命名空间，此处保留兼容）
 
 // == 批量导入通讯录到工作机 ==
 async function synPhoneToWorkPhone() {
@@ -1212,8 +1216,8 @@ async function batchDoCall() {
         }
     }
 
-    // 重置取消标志
-    window._batchCallAborted = false;
+    // 重置取消标志（使用统一命名空间）
+    window.__YX.batchCallAborted = false;
 
     // 使用公共进度条组件
     const { loadingElement, counterElement, progressBar } = createProgressBar(`正在外呼 (${applyNos.length}个号码, 间隔${callInterval}秒)`, applyNos.length);
@@ -1232,12 +1236,12 @@ async function batchDoCall() {
     header.style.cssText = headerStyle + 'display: flex; justify-content: space-between; align-items: center;';
 
     // 添加跳过间隔按钮
-    window._skipCallInterval = false;
+    window.__YX.skipCallInterval = false;
     const skipBtn = document.createElement('button');
     skipBtn.textContent = '下一个';
     skipBtn.style.cssText = 'padding: 4px 12px; background: #FF9800; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 12px;';
     skipBtn.onclick = () => {
-        window._skipCallInterval = true;
+        window.__YX.skipCallInterval = true;
         createNotification('跳过当前间隔，立即拨打下一个', false);
     };
     header.appendChild(skipBtn);
@@ -1247,7 +1251,7 @@ async function batchDoCall() {
     stopBtn.textContent = '停止';
     stopBtn.style.cssText = 'padding: 4px 12px; background: #f44336; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 12px;';
     stopBtn.onclick = () => {
-        window._batchCallAborted = true;
+        window.__YX.batchCallAborted = true;
         createNotification('已停止外呼任务', false);
     };
     header.appendChild(stopBtn);
@@ -1276,7 +1280,7 @@ async function batchDoCall() {
         // 逐个外呼
         for (let index = 0; index < applyNos.length; index++) {
             // 检查是否被取消
-            if (window._batchCallAborted) {
+            if (window.__YX.batchCallAborted) {
                 results[index] = {
                     申请编号: applyNos[index].trim(),
                     姓名: names[index] || '',
@@ -1338,18 +1342,22 @@ async function batchDoCall() {
             }
 
             // 间隔自定义秒数（可跳过）
-            if (index < applyNos.length - 1 && !window._batchCallAborted) {
-                window._skipCallInterval = false;
-                const intervalPromise = new Promise(r => setTimeout(r, callInterval * 1000));
+            if (index < applyNos.length - 1 && !window.__YX.batchCallAborted) {
+                window.__YX.skipCallInterval = false;
+                let intervalTimer = null;
+                let skipTimer = null;
+                const intervalPromise = new Promise(r => { intervalTimer = setTimeout(r, callInterval * 1000); });
                 const skipPromise = new Promise(r => {
-                    const checkSkip = setInterval(() => {
-                        if (window._skipCallInterval || window._batchCallAborted) {
-                            clearInterval(checkSkip);
+                    skipTimer = setInterval(() => {
+                        if (window.__YX.skipCallInterval || window.__YX.batchCallAborted) {
                             r();
                         }
                     }, 200);
                 });
                 await Promise.race([intervalPromise, skipPromise]);
+                // 清理：无论哪个先完成，都清除两个定时器
+                clearTimeout(intervalTimer);
+                clearInterval(skipTimer);
             }
         }
 
@@ -1361,6 +1369,8 @@ async function batchDoCall() {
         const successCount = results.filter(r => r.外呼状态 === '外呼成功').length;
         const failCount = results.filter(r => r.外呼状态 !== '外呼成功').length;
         createNotification(`外呼完成! 成功: ${successCount}, 失败: ${failCount}`);
+        // 展示外呼结果
+        displayResults(results, '批量外呼结果');
     } finally {
         // 任务完成后隐藏悬浮窗进度
         loadingElement.remove();
@@ -1557,19 +1567,22 @@ function createProgressBar(title, totalTasks) {
         animation: progressGlow 3s ease-in-out infinite;
     `;
     
-    // 添加动画样式
-    const progressStyle = document.createElement('style');
-    progressStyle.textContent = `
-        @keyframes progressGlow {
-            0%, 100% { box-shadow: 0 0 40px rgba(0, 255, 136, 0.15), 0 20px 60px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.05); }
-            50% { box-shadow: 0 0 50px rgba(0, 255, 136, 0.25), 0 20px 60px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.05); }
-        }
-        @keyframes shimmer {
-            0% { background-position: -200% 0; }
-            100% { background-position: 200% 0; }
-        }
-    `;
-    document.head.appendChild(progressStyle);
+    // 添加动画样式（全局单例，避免重复注入）
+    if (!document.getElementById('progress-bar-global-style')) {
+        const progressStyle = document.createElement('style');
+        progressStyle.id = 'progress-bar-global-style';
+        progressStyle.textContent = `
+            @keyframes progressGlow {
+                0%, 100% { box-shadow: 0 0 40px rgba(0, 255, 136, 0.15), 0 20px 60px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.05); }
+                50% { box-shadow: 0 0 50px rgba(0, 255, 136, 0.25), 0 20px 60px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.05); }
+            }
+            @keyframes shimmer {
+                0% { background-position: -200% 0; }
+                100% { background-position: 200% 0; }
+            }
+        `;
+        document.head.appendChild(progressStyle);
+    }
 
     const header = document.createElement('div');
     header.style = `
@@ -1686,13 +1699,15 @@ function createProgressBar(title, totalTasks) {
 }
 
 function updateProgress(counterElement, progressBar, completed, totalTasks) {
-    counterElement.textContent = `已完成: ${completed}/${totalTasks}`;
-    progressBar.style.width = `${(completed / totalTasks) * 100}%`;
-    
+    if (counterElement) counterElement.textContent = `已完成: ${completed}/${totalTasks}`;
+    if (progressBar) progressBar.style.width = `${(completed / totalTasks) * 100}%`;
+
     const taskContainer = document.getElementById('background-task');
     if (taskContainer && taskContainer.style.display !== 'none') {
-        document.getElementById('task-progress-text').textContent = `已完成: ${completed}/${totalTasks}`;
-        document.getElementById('task-progress-bar').style.width = `${(completed / totalTasks) * 100}%`;
+        const taskText = document.getElementById('task-progress-text');
+        const taskBar = document.getElementById('task-progress-bar');
+        if (taskText) taskText.textContent = `已完成: ${completed}/${totalTasks}`;
+        if (taskBar) taskBar.style.width = `${(completed / totalTasks) * 100}%`;
     }
 }
 
@@ -1903,11 +1918,20 @@ function displayResults(results, title) {
                 td.textContent = result[key];
                 td.style = `padding: 12px 10px; text-align: center; border-bottom: 1px solid rgba(0, 255, 136, 0.1); color: #e0e0e0; background: ${isEven ? 'rgba(255, 255, 255, 0.02)' : 'rgba(255, 255, 255, 0.05)'}; transition: background 0.2s ease;`;
 
-                // 特殊处理locationUrl显示为可点击链接
+                // 特殊处理locationUrl显示为可点击链接（安全：使用DOM API防XSS）
                 if (key === 'locationUrl') {
-                    td.innerHTML = result[key] !== "无" ? 
-                        `<a href="${result[key]}" target="_blank">查看地图</a>` : "无";
-                } 
+                    const urlVal = result[key];
+                    if (urlVal && urlVal !== "无" && /^https?:\/\/.+/.test(urlVal)) {
+                        const a = document.createElement('a');
+                        a.href = urlVal;
+                        a.target = '_blank';
+                        a.rel = 'noopener noreferrer';
+                        a.textContent = '查看地图';
+                        td.appendChild(a);
+                    } else {
+                        td.textContent = urlVal || '无';
+                    }
+                }
                 // 特殊处理historyComplaint字段
                 else if (key === 'historyComplaint') {
                     if (result[key] === true || result[key] === 'true') {
@@ -3310,11 +3334,28 @@ async function firstRoundQuery(applyNo) {
             },
             body: JSON.stringify({ applyNo })
         });
-        
+
         if (!response.ok) throw new Error(`HTTP错误! 状态: ${response.status}`);
-        
-        const data = await response.text();
-        return data.includes("已逾期") ? "未还款" : "已还款";
+
+        const rawText = await response.text();
+        // 优先尝试JSON解析（结构化响应）
+        try {
+            const json = JSON.parse(rawText);
+            if (json.code !== undefined) {
+                // 标准JSON响应：code=0表示成功/未逾期，其他表示异常
+                if (json.data && typeof json.data === 'object') {
+                    // 若data中含逾期相关字段则判断为未还款
+                    const overdueFlag = json.data.hasOverdue
+                        || json.data.isOverdue
+                        || (json.data.repayStatus && /逾期/i.test(String(json.data.repayStatus)));
+                    return overdueFlag ? "未还款" : "已还款";
+                }
+                return json.code === 0 ? "已还款" : "未还款";
+            }
+        } catch (_) { /* 非JSON响应，回退到文本匹配 */ }
+
+        // 回退：文本关键词匹配（仅在没有JSON结构时使用）
+        return /\b已逾期\b/.test(rawText) ? "未还款" : "已还款";
     } catch (error) {
         console.error(`第一轮查询失败 (${applyNo}):`, error);
         return "查询失败";
@@ -3336,14 +3377,37 @@ async function secondRoundQuery(applyNo) {
             },
             body: JSON.stringify({ applyNo, index: 1, pageSize: 2 })
         });
-        
+
         if (!response.ok) throw new Error(`HTTP错误! 状态: ${response.status}`);
-        
-        const data = await response.text();
-        
-        // 修复点：更精确地判断扣款状态
-        if (data.includes("成功")) {
-            const allDates = extractDatesFromText(data);
+
+        const rawText = await response.text();
+        // 优先尝试JSON解析（结构化响应）
+        try {
+            const json = JSON.parse(rawText);
+            if (json.code !== undefined) {
+                if (json.code === 0 && json.data) {
+                    // 检查data中的扣款记录，判断是否有近期的成功扣款
+                    const records = json.data.records || json.data.list || (Array.isArray(json.data) ? json.data : []);
+                    if (Array.isArray(records) && records.length > 0) {
+                        for (const rec of records) {
+                            const status = rec.status || rec.chargeStatus || '';
+                            if (/成功/i.test(String(status))) {
+                                const dateStr = rec.chargeDate || rec.createTime || rec.settleDate || '';
+                                if (dateStr && isRecentDate(String(dateStr))) {
+                                    return "扣款成功";
+                                }
+                            }
+                        }
+                        return "扣款失败（扣款日期非今日或昨日）";
+                    }
+                }
+                return json.code === 0 ? "扣款成功" : `扣款失败: ${json.message || json.code}`;
+            }
+        } catch (_) { /* 非JSON响应，回退到文本匹配 */ }
+
+        // 回退：文本关键词+日期匹配（仅在没有JSON结构时使用）
+        if (/\b成功\b/.test(rawText)) {
+            const allDates = extractDatesFromText(rawText);
             for (const dateStr of allDates) {
                 if (isRecentDate(dateStr)) {
                     return "扣款成功";
@@ -3351,7 +3415,7 @@ async function secondRoundQuery(applyNo) {
             }
             return "扣款失败（扣款日期非今日或昨日）";
         }
-        
+
         return "扣款失败";
     } catch (error) {
         console.error(`第二轮查询失败 (${applyNo}):`, error);
@@ -3393,12 +3457,20 @@ const DEFAULT_VALUES = {
 function parseBatchInput(input) {
     const lines = input.split('\n').filter(line => line.trim());
     const entries = [];
-    
-    for (const line of lines) {
+    let warnedExtra = false;
+
+    for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
         const parts = line.split(/[,\t\s]+/).filter(part => part.trim());
         if (parts.length >= 3) {
             const [applyNo, name, phone] = parts;
+            if (parts.length > 3 && !warnedExtra) {
+                console.warn(`[parseBatchInput] 第${i + 1}行包含${parts.length}个字段（预期3个），多余字段已忽略:`, parts.slice(3));
+                warnedExtra = true;
+            }
             entries.push({ applyNo, name, phone });
+        } else if (parts.length > 0) {
+            console.warn(`[parseBatchInput] 第${i + 1}行字段数不足（${parts.length}个，需要≥3），已跳过:`, line);
         }
     }
     return entries;
