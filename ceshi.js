@@ -4321,6 +4321,26 @@ function getRandomQuote() {
 
 
 // == 批量查询号码功能 ==
+// == 手机号验证：仅11位1开头纯数字为有效手机号 ==
+function isValidMobilePhone(phone) {
+    if (!phone) return false;
+    let digits = String(phone).replace(/\D/g, '');
+    // 去掉前导0（如013593445414→13593445414）
+    while (digits.startsWith('0') && digits.length > 11) {
+        digits = digits.substring(1);
+    }
+    return digits.length === 11 && digits.startsWith('1');
+}
+// 归一化手机号：去除前导0，返回11位纯数字，无效返回空串
+function normalizeMobilePhone(phone) {
+    if (!phone) return '';
+    let digits = String(phone).replace(/\D/g, '');
+    while (digits.startsWith('0') && digits.length > 11) {
+        digits = digits.substring(1);
+    }
+    return (digits.length === 11 && digits.startsWith('1')) ? digits : '';
+}
+
 async function batchQueryPhones() {
     if (!validateToken()) {
         createNotification("请先设置有效的Token", false);
@@ -4428,16 +4448,20 @@ async function batchQueryPhones() {
                     ]);
 
                     const base = info?.base || {};
+                    // 过滤非11位手机号，座机/异常号码不参与匹配
+                    const validContacts = (contacts || []).filter(c => {
+                        return isValidMobilePhone(c.plaintextPhone) || isValidMobilePhone(c.phone);
+                    }).map(c => ({
+                        name: c.name || '',
+                        relation: c.relation || '',
+                        plaintextPhone: normalizeMobilePhone(c.plaintextPhone) || normalizeMobilePhone(c.phone) || '',
+                        phone: normalizeMobilePhone(c.phone) || normalizeMobilePhone(c.plaintextPhone) || ''
+                    }));
                     phoneMap[applyNo] = {
-                        ownPhone: base.plaintextPhone || '',
+                        ownPhone: normalizeMobilePhone(base.plaintextPhone) || '',
                         certificateNumber: base.certificateNumber || '',
                         name: base.name || '',
-                        contacts: (contacts || []).map(c => ({
-                            name: c.name || '',
-                            relation: c.relation || '',
-                            plaintextPhone: c.plaintextPhone || '',
-                            phone: c.phone || ''
-                        }))
+                        contacts: validContacts
                     };
                 } catch (error) {
                     phoneMap[applyNo] = { ownPhone: '', certificateNumber: '', name: '', contacts: [] };
@@ -4469,7 +4493,7 @@ async function batchQueryPhones() {
         const data = phoneMap[applyNo];
 
         if (data) {
-            // 替换本人电话
+            // 替换本人电话（仅有效11位手机号才替换）
             if (phoneKey && data.ownPhone) {
                 newRow[phoneKey] = data.ownPhone;
             }
@@ -4491,7 +4515,8 @@ async function batchQueryPhones() {
 
                 if (matched) {
                     const newPhone = matched.plaintextPhone || matched.phone || '';
-                    if (newPhone) {
+                    // 仅有效11位手机号才替换，否则保留原值
+                    if (newPhone && isValidMobilePhone(newPhone)) {
                         newRow[contactPhoneKey] = newPhone;
                         // 更新归属地
                         if (locationKey) {
