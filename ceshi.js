@@ -4341,6 +4341,20 @@ function normalizeMobilePhone(phone) {
     return (digits.length === 11 && digits.startsWith('1')) ? digits : '';
 }
 
+// 提取脱敏号码的前3后4模式（如 "189****7394" → {prefix:"189", suffix:"7394"}）
+function getMaskedPhonePattern(phone) {
+    const p = String(phone || '').trim();
+    const match = p.match(/^(\d{3})\*+(\d{4})$/);
+    return match ? { prefix: match[1], suffix: match[2] } : null;
+}
+
+// 检查明文号码是否匹配脱敏模式
+function phoneMatchesMask(plaintextPhone, pattern) {
+    if (!pattern || !plaintextPhone) return false;
+    const plain = String(plaintextPhone).replace(/\D/g, '');
+    return plain.length === 11 && plain.startsWith(pattern.prefix) && plain.endsWith(pattern.suffix);
+}
+
 async function batchQueryPhones() {
     if (!validateToken()) {
         createNotification("请先设置有效的Token", false);
@@ -4493,9 +4507,32 @@ async function batchQueryPhones() {
         const data = phoneMap[applyNo];
 
         if (data) {
-            // 替换本人电话（仅有效11位手机号才替换）
+            // 替换本人电话（优先按脱敏号码模式匹配）
             if (phoneKey && data.ownPhone) {
-                newRow[phoneKey] = data.ownPhone;
+                const origPhone = String(row[phoneKey] || '').trim();
+                const maskedPattern = getMaskedPhonePattern(origPhone);
+                if (maskedPattern) {
+                    // 脱敏号码：用前3后4匹配ownPhone
+                    if (phoneMatchesMask(data.ownPhone, maskedPattern)) {
+                        newRow[phoneKey] = data.ownPhone;
+                        if (locationKey) newRow[locationKey] = getPhoneLocation(data.ownPhone);
+                    } else {
+                        // 尝试从本人联系人中匹配
+                        const selfContact = data.contacts.find(c =>
+                            c.relation === '本人' && (phoneMatchesMask(c.plaintextPhone, maskedPattern) || phoneMatchesMask(c.phone, maskedPattern))
+                        );
+                        if (selfContact) {
+                            const newPhone = selfContact.plaintextPhone || selfContact.phone || '';
+                            if (newPhone && isValidMobilePhone(newPhone)) {
+                                newRow[phoneKey] = newPhone;
+                                if (locationKey) newRow[locationKey] = getPhoneLocation(newPhone);
+                            }
+                        }
+                        // 匹配不上保留原值
+                    }
+                } else {
+                    newRow[phoneKey] = data.ownPhone;
+                }
             }
 
             // 替换证件号
@@ -4503,27 +4540,54 @@ async function batchQueryPhones() {
                 newRow[certKey] = data.certificateNumber;
             }
 
-            // 替换联系人电话
+            // 替换联系人电话（优先按脱敏号码前3后4匹配，避免同名同关系多号码被覆盖）
             if (contactPhoneKey && data.contacts.length > 0) {
                 const contactName = contactNameKey ? String(row[contactNameKey] || '').trim() : '';
                 const relation = relationKey ? String(row[relationKey] || '').trim() : '';
+                const origPhone = String(row[contactPhoneKey] || '').trim();
+                const maskedPattern = getMaskedPhonePattern(origPhone);
 
-                // 匹配联系人：优先按姓名+关系匹配
-                let matched = data.contacts.find(c => c.name === contactName && c.relation === relation);
-                if (!matched) matched = data.contacts.find(c => c.name === contactName);
-                if (!matched) matched = data.contacts.find(c => c.relation === relation);
+                let matched = null;
+
+                if (maskedPattern) {
+                    // 优先：姓名+关系+脱敏号码模式匹配（最精确）
+                    matched = data.contacts.find(c =>
+                        !c._used && c.name === contactName && c.relation === relation &&
+                        (phoneMatchesMask(c.plaintextPhone, maskedPattern) || phoneMatchesMask(c.phone, maskedPattern))
+                    );
+                    // 其次：姓名+脱敏号码模式匹配
+                    if (!matched) {
+                        matched = data.contacts.find(c =>
+                            !c._used && c.name === contactName &&
+                            (phoneMatchesMask(c.plaintextPhone, maskedPattern) || phoneMatchesMask(c.phone, maskedPattern))
+                        );
+                    }
+                    // 再次：仅脱敏号码模式匹配
+                    if (!matched) {
+                        matched = data.contacts.find(c =>
+                            !c._used &&
+                            (phoneMatchesMask(c.plaintextPhone, maskedPattern) || phoneMatchesMask(c.phone, maskedPattern))
+                        );
+                    }
+                }
+
+                // 降级：无脱敏号码模式时，按姓名+关系匹配未使用的联系人
+                if (!matched && !maskedPattern) {
+                    matched = data.contacts.find(c => !c._used && c.name === contactName && c.relation === relation);
+                    if (!matched) matched = data.contacts.find(c => !c._used && c.name === contactName);
+                }
 
                 if (matched) {
+                    matched._used = true;
                     const newPhone = matched.plaintextPhone || matched.phone || '';
-                    // 仅有效11位手机号才替换，否则保留原值
                     if (newPhone && isValidMobilePhone(newPhone)) {
                         newRow[contactPhoneKey] = newPhone;
-                        // 更新归属地
                         if (locationKey) {
                             newRow[locationKey] = getPhoneLocation(newPhone);
                         }
                     }
                 }
+                // 匹配不上保留原值
             }
         }
 
