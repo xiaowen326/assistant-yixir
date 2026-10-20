@@ -773,11 +773,25 @@ function dgrCreateUI() {
 
 // ---------- 启动 ----------
 if (location.hostname === 'finaloan-web.yxqiche.com') {
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', dgrCreateUI);
-    } else {
-        dgrCreateUI();
+    function dgrSafeStart() {
+        if (!document.body) return;
+        if (!document.getElementById('dgr-query-root')) {
+            try { dgrCreateUI(); } catch (e) { console.warn('对公查询面板创建失败:', e); }
+        }
     }
+    // 等页面完全加载后再创建，避免被 Vue 初始化时清掉
+    if (document.readyState === 'complete' || document.readyState === 'interactive') {
+        setTimeout(dgrSafeStart, 800);
+    } else {
+        document.addEventListener('DOMContentLoaded', function () {
+            setTimeout(dgrSafeStart, 800);
+        });
+    }
+    window.addEventListener('load', function () {
+        setTimeout(dgrSafeStart, 500);
+    });
+    // Vue 路由切换时 body 内容可能重渲染，做个兜底检测
+    setInterval(dgrSafeStart, 3000);
 }
 
 })();
