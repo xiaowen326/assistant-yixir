@@ -772,14 +772,17 @@ function dgrCreateUI() {
 }
 
 // ---------- 启动 ----------
+console.log('[对公查询] 模块已加载, hostname:', location.hostname);
 if (location.hostname === 'finaloan-web.yxqiche.com') {
+    console.log('[对公查询] 域名匹配，开始初始化');
     function dgrSafeStart() {
-        if (!document.body) return;
+        if (!document.body) { console.log('[对公查询] body不存在'); return; }
         if (!document.getElementById('dgr-query-root')) {
-            try { dgrCreateUI(); } catch (e) { console.warn('对公查询面板创建失败:', e); }
+            console.log('[对公查询] 面板不存在，尝试创建');
+            try { dgrCreateUI(); console.log('[对公查询] 面板创建成功'); }
+            catch (e) { console.warn('[对公查询] 面板创建失败:', e); }
         }
     }
-    // 等页面完全加载后再创建，避免被 Vue 初始化时清掉
     if (document.readyState === 'complete' || document.readyState === 'interactive') {
         setTimeout(dgrSafeStart, 800);
     } else {
@@ -790,8 +793,9 @@ if (location.hostname === 'finaloan-web.yxqiche.com') {
     window.addEventListener('load', function () {
         setTimeout(dgrSafeStart, 500);
     });
-    // Vue 路由切换时 body 内容可能重渲染，做个兜底检测
     setInterval(dgrSafeStart, 3000);
+} else {
+    console.log('[对公查询] 域名不匹配，跳过');
 }
 
 })();
