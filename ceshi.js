@@ -773,29 +773,57 @@ function dgrCreateUI() {
 
 // ---------- 启动 ----------
 console.log('[对公查询] 模块已加载, hostname:', location.hostname);
-if (location.hostname === 'finaloan-web.yxqiche.com') {
-    console.log('[对公查询] 域名匹配，开始初始化');
-    function dgrSafeStart() {
-        if (!document.body) { console.log('[对公查询] body不存在'); return; }
-        if (!document.getElementById('dgr-query-root')) {
-            console.log('[对公查询] 面板不存在，尝试创建');
-            try { dgrCreateUI(); console.log('[对公查询] 面板创建成功'); }
-            catch (e) { console.warn('[对公查询] 面板创建失败:', e); }
+// 易鑫云是门户系统，业务页面通过iframe/内嵌打开，所以不能用hostname判断
+// 改用URL路径 + 页面特征检测
+(function dgrAutoDetect() {
+    var lastUrl = '';
+    function checkAndCreate() {
+        var url = location.href;
+        if (url === lastUrl && document.getElementById('dgr-query-root')) return;
+
+        // 检测是否在对公收款勾稽页面：URL里有faAccountReceive或页面有相关特征
+        var inDgrPage = /faAccountReceive/i.test(url) || /对公.*勾稽|勾稽.*查询|收款.*勾稽/.test(document.title || '');
+        if (!inDgrPage) {
+            // 也检查body里有没有对公相关的文字（SPA路由切换）
+            var bodyText = document.body ? document.body.innerText.slice(0, 500) : '';
+            inDgrPage = /对公收款|勾稽查询|faAccountReceive/.test(bodyText);
         }
+
+        if (inDgrPage && !document.getElementById('dgr-query-root')) {
+            console.log('[对公查询] 检测到对公勾稽页面，创建面板');
+            try { dgrCreateUI(); } catch (e) { console.warn('[对公查询] 面板创建失败:', e); }
+        }
+        lastUrl = url;
     }
-    if (document.readyState === 'complete' || document.readyState === 'interactive') {
-        setTimeout(dgrSafeStart, 800);
-    } else {
+
+    // 初始检测
+    if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', function () {
-            setTimeout(dgrSafeStart, 800);
+            setTimeout(checkAndCreate, 1000);
         });
+    } else {
+        setTimeout(checkAndCreate, 1000);
     }
     window.addEventListener('load', function () {
-        setTimeout(dgrSafeStart, 500);
+        setTimeout(checkAndCreate, 500);
     });
-    setInterval(dgrSafeStart, 3000);
-} else {
-    console.log('[对公查询] 域名不匹配，跳过');
-}
+
+    // 监听URL变化（SPA路由）
+    setInterval(checkAndCreate, 2000);
+
+    // 监听DOM变化
+    if (typeof MutationObserver !== 'undefined') {
+        var observer = new MutationObserver(function () {
+            checkAndCreate();
+        });
+        if (document.body) {
+            observer.observe(document.body, { childList: true, subtree: true });
+        } else {
+            document.addEventListener('DOMContentLoaded', function () {
+                observer.observe(document.body, { childList: true, subtree: true });
+            });
+        }
+    }
+})();
 
 })();
