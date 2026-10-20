@@ -279,3 +279,505 @@ if (location.host === 'ares.yxqiche.com') {
 }
 
 })();
+
+// ========== 对公收款勾稽批量查询 v8.2 ==========
+(function () {
+'use strict';
+
+var DGR_API = '/finaloan-web/faAccountReceive/pageQuery.do';
+var DGR_BALANCE_THRESHOLD = 100;
+
+// ---------- MD5 ----------
+function dgrMd5(s) {
+    function L(k,d){return(k<<d)|(k>>>(32-d));}
+    function K(G,k){var I,d,F,H,x;F=(G&2147483648);H=(k&2147483648);I=(G&1073741824);d=(k&1073741824);x=(G&1073741823)+(k&1073741823);if(I&d)return(x^2147483648^F^H);if(I|d){if(x&1073741824)return(x^3221225472^F^H);else return(x^1073741824^F^H);}else return(x^F^H);}
+    function r(F,d,k){return(F&d)|((~F)&k);}
+    function q(F,d,k){return(F&k)|(d&(~k));}
+    function p(F,d,k){return(F^d^k);}
+    function n(F,d,k){return(d^(F|(~k)));}
+    function u(G,F,aa,Z,k,H,I){G=K(G,K(K(r(F,aa,Z),k),I));return K(L(G,H),F);}
+    function f(G,F,aa,Z,k,H,I){G=K(G,K(K(q(F,aa,Z),k),I));return K(L(G,H),F);}
+    function D(G,F,aa,Z,k,H,I){G=K(G,K(K(p(F,aa,Z),k),I));return K(L(G,H),F);}
+    function t(G,F,aa,Z,k,H,I){G=K(G,K(K(n(F,aa,Z),k),I));return K(L(G,H),F);}
+    function e(G){var Z,F=G.length,x=F+8,k=(x-(x%64))/64,I=(k+1)*16,aa=Array(I-1),d=0,H=0;while(H<F){Z=(H-(H%4))/4;d=(H%4)*8;aa[Z]=(aa[Z]|(G.charCodeAt(H)<<d));H++;}Z=(H-(H%4))/4;d=(H%4)*8;aa[Z]=aa[Z]|(128<<d);aa[I-2]=F<<3;aa[I-1]=F>>>29;return aa;}
+    function B(x){var k="",F="",G,d;for(d=0;d<=3;d++){G=(x>>>(d*8))&255;F="0"+G.toString(16);k=k+F.substr(F.length-2,2);}return k;}
+    function J(k){k=k.replace(/\r\n/g,"\n");var d="";for(var F=0;F<k.length;F++){var G=k.charCodeAt(F);if(G<128)d+=String.fromCharCode(G);else if((G>127)&&(G<2048)){d+=String.fromCharCode((G>>6)|192);d+=String.fromCharCode((G&63)|128);}else{d+=String.fromCharCode((G>>12)|224);d+=String.fromCharCode(((G>>6)&63)|128);d+=String.fromCharCode((G&63)|128);}}return d;}
+    function A(x){return B(x);}
+    var C=[],P,h,E,v,g,Y,X,W,V;
+    s=J(s);C=e(s);
+    Y=1732584193;X=4023233417;W=2562383102;V=271733878;
+    for(P=0;P<C.length;P+=16){
+        h=Y;E=X;v=W;g=V;
+        Y=u(Y,X,W,V,C[P+0],7,3614090360);V=u(V,Y,X,W,C[P+1],12,3905402710);W=u(W,V,Y,X,C[P+2],17,606105819);X=u(X,W,V,Y,C[P+3],22,3250441966);
+        Y=u(Y,X,W,V,C[P+4],7,4118548399);V=u(V,Y,X,W,C[P+5],12,1200080426);W=u(W,V,Y,X,C[P+6],17,2821735955);X=u(X,W,V,Y,C[P+7],22,4249261313);
+        Y=u(Y,X,W,V,C[P+8],7,1770035416);V=u(V,Y,X,W,C[P+9],12,2336552879);W=u(W,V,Y,X,C[P+10],17,4294925233);X=u(X,W,V,Y,C[P+11],22,2304563134);
+        Y=u(Y,X,W,V,C[P+12],7,1804603682);V=u(V,Y,X,W,C[P+13],12,4254626195);W=u(W,V,Y,X,C[P+14],17,2792965006);X=u(X,W,V,Y,C[P+15],22,1236535329);
+        Y=f(Y,X,W,V,C[P+1],5,4129170786);V=f(V,Y,X,W,C[P+6],9,3225465664);W=f(W,V,Y,X,C[P+11],14,643717713);X=f(X,W,V,Y,C[P+0],20,3921069994);
+        Y=f(Y,X,W,V,C[P+5],5,3593408605);V=f(V,Y,X,W,C[P+10],9,38016083);W=f(W,V,Y,X,C[P+15],14,3634488961);X=f(X,W,V,Y,C[P+4],20,3889429448);
+        Y=f(Y,X,W,V,C[P+9],5,568446438);V=f(V,Y,X,W,C[P+14],9,3275163606);W=f(W,V,Y,X,C[P+3],14,4107603335);X=f(X,W,V,Y,C[P+8],20,1163531501);
+        Y=f(Y,X,W,V,C[P+13],5,2850285829);V=f(V,Y,X,W,C[P+2],9,4243563512);W=f(W,V,Y,X,C[P+7],14,1735328473);X=f(X,W,V,Y,C[P+12],20,2368359562);
+        Y=D(Y,X,W,V,C[P+5],4,4294588738);V=D(V,Y,X,W,C[P+8],11,2272392833);W=D(W,V,Y,X,C[P+11],16,1839030562);X=D(X,W,V,Y,C[P+14],23,4259657740);
+        Y=D(Y,X,W,V,C[P+1],4,2763975236);V=D(V,Y,X,W,C[P+4],11,1272893353);W=D(W,V,Y,X,C[P+7],16,4139469664);X=D(X,W,V,Y,C[P+10],23,3200236656);
+        Y=D(Y,X,W,V,C[P+13],4,681279174);V=D(V,Y,X,W,C[P+0],11,3936430074);W=D(W,V,Y,X,C[P+3],16,3572445317);X=D(X,W,V,Y,C[P+6],23,76029189);
+        Y=D(Y,X,W,V,C[P+9],4,3654602809);V=D(V,Y,X,W,C[P+12],11,3873151461);W=D(W,V,Y,X,C[P+15],16,530742520);X=D(X,W,V,Y,C[P+2],23,3299628645);
+        Y=t(Y,X,W,V,C[P+0],6,4096336452);V=t(V,Y,X,W,C[P+7],10,1126891415);W=t(W,V,Y,X,C[P+14],15,2878612391);X=t(X,W,V,Y,C[P+5],21,4237533241);
+        Y=t(Y,X,W,V,C[P+12],6,1700485571);V=t(V,Y,X,W,C[P+3],10,2399980690);W=t(W,V,Y,X,C[P+10],15,4293915773);X=t(X,W,V,Y,C[P+1],21,2240044497);
+        Y=t(Y,X,W,V,C[P+8],6,1873313359);V=t(V,Y,X,W,C[P+15],10,4264355552);W=t(W,V,Y,X,C[P+6],15,2734768916);X=t(X,W,V,Y,C[P+13],21,1309151649);
+        Y=t(Y,X,W,V,C[P+4],6,4149444226);V=t(V,Y,X,W,C[P+11],10,3174756917);W=t(W,V,Y,X,C[P+2],15,718787259);X=t(X,W,V,Y,C[P+9],21,3951481745);
+        Y=K(Y,h);X=K(X,E);W=K(W,v);V=K(V,g);
+    }
+    return (A(Y)+A(X)+A(W)+A(V)).toLowerCase();
+}
+
+// ---------- 签名 ----------
+function dgrBuildParam(data) {
+    var arr = [];
+    function walk(obj, prefix) {
+        for (var k in obj) {
+            if (!obj.hasOwnProperty(k)) continue;
+            var fullKey = prefix ? prefix + '[' + k + ']' : k;
+            var v = obj[k];
+            if (v === null) arr.push(fullKey + '=');
+            else if (typeof v !== 'object') { if (v !== undefined) arr.push(fullKey + '=' + v); }
+            else walk(v, fullKey);
+        }
+    }
+    walk(data, '');
+    return arr.sort().join('');
+}
+function dgrMakeYixin(params) { return dgrMd5(dgrBuildParam(params)); }
+
+// ---------- 基础参数 ----------
+function dgrBaseParams() {
+    return {
+        current: '1', rowCount: '500',
+        startTime: '', endTime: '', payer: '', totalAmount: '', applyId: '',
+        accountClaimantName: '', status: '', accountType: '', subject: '',
+        applyIds: '', minAmount: '', maxAmount: '', remark: '',
+        claimStartTime: '', claimEndTime: '', amountType: '',
+        accountCreatorName: '', isZF: '', repurchased: '', postScript: '',
+        accountDateStart: '', accountDateEnd: '',
+        remarkDateStart: '', remarkDateEnd: '',
+        queryRemark: '', isTodo: '',
+        todoDateStart: '', todoDateEnd: '', receiveMark: ''
+    };
+}
+
+// ---------- 请求 ----------
+function dgrQuery(overrides) {
+    var params = {};
+    var base = dgrBaseParams();
+    for (var k in base) { if (base.hasOwnProperty(k)) params[k] = base[k]; }
+    if (overrides) { for (var k2 in overrides) { if (overrides.hasOwnProperty(k2)) params[k2] = overrides[k2]; } }
+    var yixin = dgrMakeYixin(params);
+    var bodyParts = [];
+    for (var k3 in params) {
+        if (!params.hasOwnProperty(k3)) continue;
+        bodyParts.push(encodeURIComponent(k3) + '=' + encodeURIComponent(params[k3]));
+    }
+    var bodyStr = bodyParts.join('&');
+
+    return new Promise(function (resolve, reject) {
+        var xhr = new XMLHttpRequest();
+        xhr.open('POST', DGR_API, true);
+        xhr.withCredentials = true;
+        xhr.setRequestHeader('content-type', 'application/x-www-form-urlencoded;charset=UTF-8');
+        xhr.setRequestHeader('accept', 'application/json, text/plain, */*');
+        xhr.setRequestHeader('yixin', yixin);
+        xhr.onreadystatechange = function () {
+            if (xhr.readyState !== 4) return;
+            if (xhr.status === 403) return reject(new Error('403 签名验证失败'));
+            if (xhr.status !== 200) return reject(new Error('HTTP ' + xhr.status));
+            try {
+                var json = JSON.parse(xhr.responseText);
+                resolve(json);
+            } catch (e) { reject(new Error('返回非 JSON')); }
+        };
+        xhr.onerror = function () { reject(new Error('网络错误')); };
+        xhr.send(bodyStr);
+    });
+}
+
+// ---------- 工具 ----------
+function dgrNotify(msg, ok) {
+    ok = ok !== false;
+    var el = document.createElement('div');
+    el.textContent = msg;
+    el.style.cssText = 'position:fixed;top:20px;left:50%;transform:translateX(-50%);padding:12px 24px;border-radius:6px;z-index:999999;background:' + (ok ? '#4CAF50' : '#f44336') + ';color:#fff;font-size:14px;box-shadow:0 4px 12px rgba(0,0,0,.25);';
+    document.body.appendChild(el);
+    setTimeout(function () { el.remove(); }, 2500);
+}
+
+function dgrProgress(title, total, subTitle) {
+    var wrap = document.createElement('div');
+    wrap.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:#fff;padding:20px;border-radius:8px;min-width:380px;z-index:99999;box-shadow:0 4px 20px rgba(0,0,0,.15);';
+    var t = document.createElement('div');
+    t.textContent = title;
+    t.style.cssText = 'font-weight:bold;margin-bottom:6px;font-size:15px;';
+    var sub = document.createElement('div');
+    sub.textContent = subTitle || '';
+    sub.style.cssText = 'font-size:12px;color:#888;margin-bottom:10px;';
+    var c = document.createElement('div');
+    c.textContent = '已完成 0/' + total;
+    c.style.cssText = 'margin-bottom:10px;font-size:13px;';
+    var bw = document.createElement('div');
+    bw.style.cssText = 'width:100%;height:10px;background:#e0e0e0;border-radius:5px;overflow:hidden;';
+    var b = document.createElement('div');
+    b.style.cssText = 'width:0%;height:100%;background:#4CAF50;transition:width .3s;';
+    bw.appendChild(b);
+    wrap.appendChild(t); wrap.appendChild(sub); wrap.appendChild(c); wrap.appendChild(bw);
+    document.body.appendChild(wrap);
+    return { wrap: wrap, counter: c, bar: b, title: t, sub: sub };
+}
+
+// ---------- 过滤 ----------
+function dgrShouldKeep(item, sourceApplyId) {
+    var statusName = (item.statusName || '').trim();
+    var leftAmount = parseFloat(item.leftAmount) || 0;
+    var totalAmount = parseFloat(item.totalAmount) || 0;
+
+    if (totalAmount < 99) return false;
+
+    if (statusName === '已认领') {
+        return sourceApplyId && String(item.applyId || '').trim() === String(sourceApplyId).trim();
+    }
+    if (statusName === '未认领') {
+        return true;
+    }
+    if (statusName === '部分勾稽') {
+        return leftAmount > DGR_BALANCE_THRESHOLD && sourceApplyId && String(item.applyId || '').trim() === String(sourceApplyId).trim();
+    }
+    if (statusName === '全部勾稽') {
+        return leftAmount > DGR_BALANCE_THRESHOLD;
+    }
+    return false;
+}
+
+// ---------- 结果表格 ----------
+function dgrShowTable(rows, title) {
+    if (!rows || rows.length === 0) {
+        dgrNotify('没有符合条件的记录', false);
+        return;
+    }
+
+    var m = document.createElement('div');
+    m.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:95vw;max-width:1400px;max-height:85vh;overflow:auto;background:#fff;border:2px solid #2196F3;border-radius:8px;padding:20px;z-index:99999;box-shadow:0 4px 30px rgba(0,0,0,.3);';
+
+    var h = document.createElement('h2');
+    h.textContent = title;
+    h.style.cssText = 'text-align:center;margin-bottom:10px;font-size:18px;';
+    m.appendChild(h);
+
+    var info = document.createElement('div');
+    info.textContent = '共 ' + rows.length + ' 条符合条件的记录（已过滤）';
+    info.style.cssText = 'margin-bottom:12px;font-size:13px;color:#666;text-align:center;';
+    m.appendChild(info);
+
+    var copyBtn = document.createElement('button');
+    copyBtn.textContent = '复制结果（Excel可粘贴）';
+    copyBtn.style.cssText = 'padding:6px 16px;margin-bottom:12px;background:#2196F3;color:#fff;border:none;border-radius:4px;cursor:pointer;';
+    copyBtn.onclick = function () {
+        var headers = Object.keys(rows[0]);
+        var text = headers.join('\t') + '\r\n';
+        for (var i = 0; i < rows.length; i++) {
+            var r = rows[i];
+            text += headers.map(function (k) { return r[k] != null ? r[k] : ''; }).join('\t') + '\r\n';
+        }
+        var ta = document.createElement('textarea');
+        ta.value = text;
+        ta.style.cssText = 'position:fixed;left:-9999px;';
+        document.body.appendChild(ta); ta.select();
+        try { document.execCommand('copy'); dgrNotify('已复制'); }
+        catch (e) { dgrNotify('复制失败', false); }
+        ta.remove();
+    };
+    m.appendChild(copyBtn);
+
+    var tb = document.createElement('table');
+    tb.style.cssText = 'width:100%;border-collapse:collapse;font-size:12px;';
+
+    var cols = Object.keys(rows[0]);
+    var thead = document.createElement('tr');
+    for (var c = 0; c < cols.length; c++) {
+        var th = document.createElement('th');
+        th.textContent = cols[c];
+        th.style.cssText = 'border:1px solid #ccc;padding:6px;background:#f2f2f2;white-space:nowrap;position:sticky;top:0;';
+        thead.appendChild(th);
+    }
+    tb.appendChild(thead);
+
+    for (var i = 0; i < rows.length; i++) {
+        var tr = document.createElement('tr');
+        for (var c = 0; c < cols.length; c++) {
+            var td = document.createElement('td');
+            td.textContent = rows[i][cols[c]] != null ? rows[i][cols[c]] : '';
+            td.style.cssText = 'border:1px solid #eee;padding:6px;text-align:center;white-space:nowrap;';
+            if (cols[c] === '勾稽状态') {
+                var v = String(rows[i][cols[c]]);
+                if (v === '已认领') td.style.color = '#4CAF50';
+                else if (v === '未认领') td.style.color = '#f44336';
+                else if (v === '部分勾稽') td.style.color = '#FF9800';
+                else if (v === '全部勾稽') td.style.color = '#9C27B0';
+                td.style.fontWeight = 'bold';
+            }
+            tr.appendChild(td);
+        }
+        tb.appendChild(tr);
+    }
+    m.appendChild(tb);
+
+    var closeBtn = document.createElement('button');
+    closeBtn.textContent = '关闭';
+    closeBtn.style.cssText = 'margin-top:15px;padding:8px 24px;background:#f44336;color:#fff;border:none;border-radius:4px;cursor:pointer;';
+    closeBtn.onclick = function () { m.remove(); };
+    m.appendChild(closeBtn);
+
+    document.body.appendChild(m);
+}
+
+// ---------- 主流程 ----------
+function dgrBatchQuery() {
+    var input = prompt('请输入申请号+客户姓名（每行一组，支持格式：\n  3399769470 张三\n  3399769471\t李四\n  3399769472;王五\n\n最多50条）');
+    if (input === null || input.trim() === '') return;
+
+    var lines = input.split(/\r?\n/).map(function (l) { return l.trim(); }).filter(Boolean);
+    var inputList = [];
+    for (var i = 0; i < lines.length; i++) {
+        var parts = lines[i].split(/[\t;|]+|\s{2,}/);
+        if (parts.length === 1) {
+            var m = lines[i].match(/^(\S+)\s+(.+)$/);
+            if (m) {
+                inputList.push({ applyId: m[1].trim(), customerName: m[2].trim() });
+            } else {
+                inputList.push({ applyId: lines[i].trim(), customerName: '' });
+            }
+        } else {
+            inputList.push({ applyId: parts[0].trim(), customerName: (parts[1] || '').trim() });
+        }
+    }
+    if (!inputList.length) return dgrNotify('未输入有效申请号', false);
+    if (inputList.length > 50) return dgrNotify('单次最多50条', false);
+
+    var applyIds = inputList.map(function (e) { return e.applyId; });
+
+    var pg = dgrProgress('第一步：查询申请号 → 提取付款方', applyIds.length, '用申请号查询，提取每个申请号对应的付款方名称');
+
+    var applyPayerMap = {};
+    var allPayersSet = {};
+    var done1 = 0;
+    var failCount = 0;
+    var index1 = 0;
+    var concurrency1 = 5;
+
+    function worker1() {
+        return new Promise(function (resolve) {
+            function next() {
+                if (index1 >= applyIds.length || failCount >= 5) return resolve();
+                var idx = index1++;
+                var applyId = applyIds[idx];
+
+                dgrQuery({ applyIds: applyId }).then(function (data) {
+                    var items = (data && data.page && data.page.data) || [];
+                    var ps = {};
+                    for (var j = 0; j < items.length; j++) {
+                        var p = items[j].payer;
+                        if (p) { ps[p] = true; allPayersSet[p] = true; }
+                    }
+                    applyPayerMap[applyId] = Object.keys(ps);
+                }).catch(function (err) {
+                    failCount++;
+                    console.error('第一步查询失败:', applyId, err);
+                }).then(function () {
+                    done1++;
+                    pg.counter.textContent = '已完成 ' + done1 + '/' + applyIds.length;
+                    pg.bar.style.width = (done1 / applyIds.length * 100) + '%';
+                    next();
+                });
+            }
+            next();
+        });
+    }
+
+    var workers1 = [];
+    for (var w = 0; w < Math.min(concurrency1, applyIds.length); w++) {
+        workers1.push(worker1());
+    }
+
+    Promise.all(workers1).then(function () {
+        var payerList = [];
+        for (var p in allPayersSet) { if (allPayersSet.hasOwnProperty(p)) payerList.push(p); }
+        if (payerList.length === 0) {
+            pg.wrap.remove();
+            return dgrNotify('未查询到任何付款方信息', false);
+        }
+
+        pg.title.textContent = '第二步：按付款方查询全部记录';
+        pg.sub.textContent = '共 ' + payerList.length + ' 个付款方，查询后过滤结果';
+        pg.counter.textContent = '已完成 0/' + payerList.length;
+        pg.bar.style.width = '0%';
+
+        var payerCache = {};
+        var done2 = 0;
+        var index2 = 0;
+        var concurrency2 = 3;
+
+        function worker2() {
+            return new Promise(function (resolve) {
+                function next() {
+                    if (index2 >= payerList.length) return resolve();
+                    var idx = index2++;
+                    var payer = payerList[idx];
+
+                    dgrQuery({ payer: payer }).then(function (data) {
+                        payerCache[payer] = (data && data.page && data.page.data) || [];
+                    }).catch(function (err) {
+                        console.error('第二步查询失败:', payer, err);
+                        payerCache[payer] = [];
+                    }).then(function () {
+                        done2++;
+                        pg.counter.textContent = '已完成 ' + done2 + '/' + payerList.length;
+                        pg.bar.style.width = (done2 / payerList.length * 100) + '%';
+                        next();
+                    });
+                }
+                next();
+            });
+        }
+
+        var workers2 = [];
+        for (var w = 0; w < Math.min(concurrency2, payerList.length); w++) {
+            workers2.push(worker2());
+        }
+
+        Promise.all(workers2).then(function () {
+            pg.wrap.remove();
+
+            var resultRows = [];
+            for (var i = 0; i < inputList.length; i++) {
+                var entry = inputList[i];
+                var applyId = entry.applyId;
+                var customerName = entry.customerName;
+                var payers = applyPayerMap[applyId] || [];
+                for (var p = 0; p < payers.length; p++) {
+                    var payer = payers[p];
+                    var items = payerCache[payer] || [];
+                    var seenKeys = {};
+                    for (var j = 0; j < items.length; j++) {
+                        var item = items[j];
+                        if (!dgrShouldKeep(item, applyId)) continue;
+                        var dedupKey = (item.payer || '') + '|' + (item.applyId || '');
+                        if (seenKeys[dedupKey]) continue;
+                        seenKeys[dedupKey] = true;
+                        resultRows.push({
+                            '来源申请号': applyId,
+                            '客户姓名': customerName,
+                            '付款方': item.payer || '',
+                            '申请号': item.applyId || '',
+                            '勾稽状态': (item.statusName || '').trim() || '-',
+                            '贷方金额': item.totalAmount != null ? item.totalAmount : '',
+                            '勾稽余额': item.leftAmount != null ? item.leftAmount : '',
+                            '交易日期': item.tranDate || '',
+                            '认领人': item.accountClaimantName || '',
+                            '勾稽类型': item.amountType || '',
+                            '备注': item.remark || '',
+                            '附言': item.postScript || ''
+                        });
+                    }
+                }
+            }
+
+            resultRows.sort(function (a, b) {
+                if (a['来源申请号'] !== b['来源申请号']) return a['来源申请号'] > b['来源申请号'] ? 1 : -1;
+                if (a['付款方'] !== b['付款方']) return a['付款方'] > b['付款方'] ? 1 : -1;
+                return a['勾稽状态'] > b['勾稽状态'] ? 1 : -1;
+            });
+
+            if (resultRows.length === 0) {
+                dgrNotify('查询完成，但没有符合过滤条件的记录', false);
+                dgrShowTable([{
+                    '来源申请号': '-', '客户姓名': '-', '付款方': '-', '申请号': '-', '勾稽状态': '无符合条件记录',
+                    '贷方金额': '', '勾稽余额': '', '交易日期': '',
+                    '认领人': '', '勾稽类型': '', '备注': '', '附言': ''
+                }], '对公勾稽查询结果（已过滤）');
+            } else {
+                dgrNotify('查询完成，共 ' + resultRows.length + ' 条符合条件');
+                dgrShowTable(resultRows, '对公勾稽查询结果（已过滤）');
+            }
+        });
+    });
+}
+
+// ---------- 悬浮面板 ----------
+function dgrCreateUI() {
+    if (document.getElementById('dgr-query-root')) return;
+
+    var root = document.createElement('div');
+    root.id = 'dgr-query-root';
+    root.style.cssText = 'position:fixed;top:30%;right:20px;width:240px;background:#fff;border:1px solid #eee;border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,.1);z-index:99998;font-size:13px;';
+
+    var header = document.createElement('div');
+    header.style.cssText = 'display:flex;align-items:center;justify-content:space-between;padding:8px 12px;border-bottom:1px solid #eee;cursor:move;';
+    var titleEl = document.createElement('div');
+    titleEl.textContent = '对公收款勾稽批量查询';
+    titleEl.style.cssText = 'font-weight:bold;font-size:12px;';
+    var toggle = document.createElement('div');
+    toggle.textContent = '−';
+    toggle.style.cssText = 'cursor:pointer;font-size:18px;user-select:none;';
+    header.appendChild(titleEl); header.appendChild(toggle);
+    root.appendChild(header);
+
+    var body = document.createElement('div');
+    body.style.cssText = 'padding:10px 12px;';
+
+    var btn = document.createElement('button');
+    btn.textContent = '批量查询（申请号+客户名）';
+    btn.style.cssText = 'display:block;width:100%;padding:10px;background:#2196F3;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:13px;margin-bottom:8px;';
+    btn.onclick = dgrBatchQuery;
+    body.appendChild(btn);
+
+    var tip = document.createElement('div');
+    tip.style.cssText = 'font-size:11px;color:#666;line-height:1.6;';
+    tip.innerHTML = '输入：每行一组「申请号 客户姓名」<br>' +
+        '保留：已认领 / 未认领<br>' +
+        '部分勾稽：余额>' + DGR_BALANCE_THRESHOLD + ' 且申请号匹配<br>' +
+        '全部勾稽：余额>' + DGR_BALANCE_THRESHOLD + '<br>' +
+        '贷方金额&lt;99 全部过滤';
+    body.appendChild(tip);
+
+    root.appendChild(body);
+    document.body.appendChild(root);
+
+    toggle.onclick = function () {
+        var hidden = body.style.display === 'none';
+        body.style.display = hidden ? 'block' : 'none';
+        toggle.textContent = hidden ? '−' : '+';
+    };
+
+    var drag = false, sx, sy, ox, oy;
+    header.addEventListener('mousedown', function (e) {
+        drag = true;
+        var r = root.getBoundingClientRect();
+        sx = e.clientX; sy = e.clientY; ox = r.left; oy = r.top;
+        e.preventDefault();
+    });
+    document.addEventListener('mousemove', function (e) {
+        if (!drag) return;
+        var x = Math.min(Math.max(ox + e.clientX - sx, 0), innerWidth - root.offsetWidth);
+        var y = Math.min(Math.max(oy + e.clientY - sy, 0), innerHeight - root.offsetHeight);
+        root.style.left = x + 'px';
+        root.style.top = y + 'px';
+        root.style.right = 'auto';
+    });
+    document.addEventListener('mouseup', function () { drag = false; });
+}
+
+// ---------- 启动 ----------
+if (location.hostname === 'finaloan-web.yxqiche.com') {
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', dgrCreateUI);
+    } else {
+        dgrCreateUI();
+    }
+}
+
+})();
