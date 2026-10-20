@@ -284,7 +284,7 @@ if (location.host === 'ares.yxqiche.com') {
 (function () {
 'use strict';
 
-var DGR_API = '/finaloan-web/faAccountReceive/pageQuery.do';
+var DGR_API = 'https://finaloan-web.yxqiche.com/finaloan-web/faAccountReceive/pageQuery.do';
 var DGR_BALANCE_THRESHOLD = 100;
 
 // ---------- MD5 ----------
@@ -365,36 +365,37 @@ function dgrBaseParams() {
 
 // ---------- 请求 ----------
 function dgrQuery(overrides) {
-    var params = {};
-    var base = dgrBaseParams();
-    for (var k in base) { if (base.hasOwnProperty(k)) params[k] = base[k]; }
-    if (overrides) { for (var k2 in overrides) { if (overrides.hasOwnProperty(k2)) params[k2] = overrides[k2]; } }
+    var params = Object.assign({}, dgrBaseParams, overrides || {});
     var yixin = dgrMakeYixin(params);
-    var bodyParts = [];
-    for (var k3 in params) {
-        if (!params.hasOwnProperty(k3)) continue;
-        bodyParts.push(encodeURIComponent(k3) + '=' + encodeURIComponent(params[k3]));
-    }
-    var bodyStr = bodyParts.join('&');
-
+    var bodyStr = dgrBuildParam(params);
     return new Promise(function (resolve, reject) {
-        var xhr = new XMLHttpRequest();
-        xhr.open('POST', DGR_API, true);
-        xhr.withCredentials = true;
-        xhr.setRequestHeader('content-type', 'application/x-www-form-urlencoded;charset=UTF-8');
-        xhr.setRequestHeader('accept', 'application/json, text/plain, */*');
-        xhr.setRequestHeader('yixin', yixin);
-        xhr.onreadystatechange = function () {
-            if (xhr.readyState !== 4) return;
-            if (xhr.status === 403) return reject(new Error('403 签名验证失败'));
-            if (xhr.status !== 200) return reject(new Error('HTTP ' + xhr.status));
-            try {
-                var json = JSON.parse(xhr.responseText);
-                resolve(json);
-            } catch (e) { reject(new Error('返回非 JSON')); }
-        };
-        xhr.onerror = function () { reject(new Error('网络错误')); };
-        xhr.send(bodyStr);
+        if (typeof GM_xmlhttpRequest === 'undefined') {
+            reject(new Error('GM_xmlhttpRequest 不可用，请检查油猴设置'));
+            return;
+        }
+        GM_xmlhttpRequest({
+            method: 'POST',
+            url: DGR_API,
+            headers: {
+                'content-type': 'application/x-www-form-urlencoded;charset=UTF-8',
+                'accept': 'application/json, text/plain, */*',
+                'yixin': yixin
+            },
+            data: bodyStr,
+            withCredentials: true,
+            onload: function (response) {
+                if (response.status === 403) return reject(new Error('403 签名验证失败'));
+                if (response.status !== 200) return reject(new Error('HTTP ' + response.status));
+                try {
+                    var json = JSON.parse(response.responseText);
+                    resolve(json);
+                } catch (e) {
+                    reject(new Error('响应解析失败: ' + e.message));
+                }
+            },
+            onerror: function (e) { reject(new Error('网络错误: ' + (e.error || e.status || 'unknown'))); },
+            ontimeout: function () { reject(new Error('请求超时')); }
+        });
     });
 }
 
