@@ -284,7 +284,7 @@ if (location.host === 'ares.yxqiche.com') {
 (function () {
 'use strict';
 
-var DGR_API = 'https://finaloan-web.yxqiche.com/finaloan-web/faAccountReceive/pageQuery.do';
+var DGR_API = '/finaloan-web/faAccountReceive/pageQuery.do';
 var DGR_BALANCE_THRESHOLD = 100;
 
 // ---------- MD5 ----------
@@ -710,6 +710,47 @@ function dgrBatchQuery() {
 
 // ---------- 悬浮面板 ----------
 function dgrCreateUI() {
+    // 环境诊断
+    console.log('[对公查询] ===== 环境诊断 =====');
+    console.log('[对公查询] location.href:', location.href);
+    console.log('[对公查询] location.host:', location.host);
+    console.log('[对公查询] document.title:', document.title);
+    console.log('[对公查询] isTopWindow:', window.top === window.self);
+    console.log('[对公查询] frames.length:', window.frames.length);
+    
+    // 检查可能的请求库
+    ['axios', 'fetch', '$http', 'http', 'request', 'jQuery', '$'].forEach(function(k) {
+        if (window[k]) console.log('[对公查询] window.' + k + ':', typeof window[k]);
+    });
+    
+    // 检查 iframe
+    try {
+        var iframes = document.querySelectorAll('iframe');
+        for (var i = 0; i < iframes.length; i++) {
+            var f = iframes[i];
+            console.log('[对公查询] iframe[' + i + '] src:', f.src);
+            try {
+                console.log('[对公查询] iframe[' + i + '] 可访问:', f.contentWindow.location.href);
+            } catch(e) {
+                console.log('[对公查询] iframe[' + i + '] 跨域不可访问');
+            }
+        }
+    } catch(e) { console.warn('[对公查询] iframe检测失败:', e); }
+    
+    // 检查 cookie
+    console.log('[对公查询] document.cookie 前200字:', document.cookie.substring(0, 200));
+    
+    // 检查 localStorage 里可能的token
+    try {
+        Object.keys(localStorage).forEach(function(k) {
+            if (/token|auth|session|login|user/i.test(k)) {
+                console.log('[对公查询] localStorage.' + k + ':', localStorage.getItem(k).substring(0, 100));
+            }
+        });
+    } catch(e) {}
+    
+    console.log('[对公查询] ===== 诊断结束 =====');
+
     if (document.getElementById('dgr-query-root')) return;
 
     var root = document.createElement('div');
